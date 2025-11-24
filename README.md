@@ -1,6 +1,6 @@
 # [Group] Concurrency Kit
 
-A lightweight, dependency-aware (yet another DAG) concurrency toolkit built on top of std errgroup, providing fine-grained control over concurrent task execution with minimal overhead.
+⚡ A lightweight, dependency-aware (*yet another DAG*) concurrency toolkit built on top of std errgroup, providing fine-grained control over concurrent task execution with minimal overhead.
 
 *Much less overhead by optional features selected*
 
@@ -38,12 +38,16 @@ Available options:
 
 ### Features
 
-- **Dependency Management**: Define task dependencies with automatic execution ordering
-- **Weak Dependencies**: Continue execution even when upstream tasks fail
-- **Fast-Fail Control**: Configure tasks to halt group execution on error
-- **Built-in Store**: Share data between dependent tasks using context-based storage
-- **Timeout Control**: Set timeouts at the group level
-- **Monitoring & Logging**: Optional execution monitoring and logging
+- **🔗 Dependency Management**: Define task dependencies with automatic execution ordering
+- **🧩 Weak Dependencies**: Continue execution even when upstream tasks fail
+- **💥 Fast-Fail Control**: Configure tasks to halt group execution on error
+- **📦 Built-in Store**: Share data between dependent tasks using context-based storage
+- **⏱️ Timeout Control**: Set timeouts at the group level
+- **📊 Monitoring & Logging**: Optional execution monitoring and logging
+
+#### Error Propagation
+Within a group, errors propagate according to dependency order, eventually returning only **leaf errors** that have already aggregated parent errors.
+If multiple leaf errors exist, they are aggregated using `errors.Join` (when a fast-fail error occurs, only the aggregated error from the fast-fail node is returned).
 
 ### Usage
 
@@ -53,11 +57,13 @@ Create a group using `NewGroup` with optional configurations, then add tasks usi
 
 #### [Task Types]
 
-***Simple Runner*** - Basic function that returns an error. No access to context or shared state.
+***🚀 Simple Runner*** - Basic function that returns an error. No access to context or shared state.
 
-***Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
+***🚁 Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
+Context-aware tasks will be able to communicate data through `Store` and `Fetch`.
 
-***Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+***🚢 Shared-Data Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
 
 #### [More...]
 Refer to the example package in this repo
