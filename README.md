@@ -46,7 +46,6 @@ Available options:
 - **Monitoring & Logging**: Optional execution monitoring and logging
 
 ### Usage
-Refer to the example package in this repo
 
 #### [Basic Workflow]
 
@@ -54,11 +53,14 @@ Create a group using `NewGroup` with optional configurations, then add tasks usi
 
 #### [Task Types]
 
-**Simple Runner** - Basic function that returns an error. No access to context or shared state.
+***Simple Runner*** - Basic function that returns an error. No access to context or shared state.
 
-**Context-Aware Task** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
+***Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
 
-**Shared-State Task** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+***Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+
+#### [More...]
+Refer to the example package in this repo
 
 ### Verify
 Verify checks for cycles in the dependency graph by using `group.Verify()` or `Node.Verify()`
