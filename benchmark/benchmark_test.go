@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/oatcatx/group"
+	. "github.com/oatcatx/group"
 )
 
 // Task represents a unit of work to benchmark
@@ -73,35 +73,35 @@ func BenchmarkGo(b *testing.B) {
 	fmt.Println()
 	for _, c := range cases {
 		b.Run(fmt.Sprintf("%sWorkload", c.name), func(b *testing.B) {
-			benchmarkGo(b, genTasks(c.cnt, c.workload, c.io))
+			runBenchmarkGo(b, genTasks(c.cnt, c.workload, c.io))
 		})
 		fmt.Println()
 	}
 }
 
-func benchmarkGo(b *testing.B, tasks []Task) {
+func runBenchmarkGo(b *testing.B, tasks []Task) {
 	b.Run("StdGoroutine", func(b *testing.B) {
 		fs := setupFuncs(tasks)
-		runStdGoroutine(b, fs...)
+		loopStdGoroutine(b, fs...)
 	})
 
 	b.Run("StdErrGroup", func(b *testing.B) {
 		fs := setupFuncs(tasks)
-		runStdErrGroup(b, fs...)
+		loopStdErrGroup(b, fs...)
 	})
 
-	b.Run("GroupGo", func(b *testing.B) {
+	b.Run("Go", func(b *testing.B) {
 		fs := setupFuncs(tasks)
-		runGroupGo(b, nil, fs...)
+		loopGo(b, nil, fs...)
 	})
 
-	b.Run("GroupGoWithOpts", func(b *testing.B) {
+	b.Run("GoWithOpts", func(b *testing.B) {
 		fs := setupFuncs(tasks)
-		runGroupGo(b, group.Opts(group.WithTimeout(1*time.Minute), group.WithLog), fs...)
+		loopGo(b, Opts(WithTimeout(1*time.Minute), WithLog), fs...)
 	})
 }
 
-func runStdGoroutine(b *testing.B, fs ...func() error) {
+func loopStdGoroutine(b *testing.B, fs ...func() error) {
 	for b.Loop() {
 		var wg sync.WaitGroup
 		wg.Add(len(fs))
@@ -115,7 +115,7 @@ func runStdGoroutine(b *testing.B, fs ...func() error) {
 	}
 }
 
-func runStdErrGroup(b *testing.B, fs ...func() error) {
+func loopStdErrGroup(b *testing.B, fs ...func() error) {
 	for b.Loop() {
 		g, _ := errgroup.WithContext(context.Background())
 		for _, f := range fs {
@@ -125,13 +125,15 @@ func runStdErrGroup(b *testing.B, fs ...func() error) {
 	}
 }
 
-func runGroupGo(b *testing.B, opts *group.Options, fs ...func() error) {
+func loopGo(b *testing.B, opts *Options, fs ...func() error) {
 	for b.Loop() {
-		_ = group.Go(context.Background(), opts, fs...)
+		_ = Go(context.Background(), opts, fs...)
 	}
 }
 
-// >> BENCHMARK - DEP
+// region GROUP
+
+//= BENCHMARK - Group
 
 type benchmarkCtx struct {
 	a, b, c, d int
@@ -157,25 +159,23 @@ func (c *benchmarkCtx) D() error {
 	return nil
 }
 
-func BenchmarkGoDep(b *testing.B) {
-	// discard log output
-	slog.SetDefault(slog.New(slog.DiscardHandler))
+func BenchmarkGroupGo(b *testing.B) {
 	fmt.Println()
-	benchmarkGoDep(b)
+	runBenchmarkGroupGo(b)
 	fmt.Println()
 }
 
-func benchmarkGoDep(b *testing.B) {
+func runBenchmarkGroupGo(b *testing.B) {
 	b.Run("StdErrGroup", func(b *testing.B) {
-		runStdErrGroupDep(b, new(benchmarkCtx))
+		loopStdErrGroupDep(b, new(benchmarkCtx))
 	})
 
 	b.Run("GroupGo", func(b *testing.B) {
-		runGroupGoDep(b, new(benchmarkCtx))
+		loopGroupGo(b, new(benchmarkCtx))
 	})
 }
 
-func runStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
+func loopStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
 	for b.Loop() {
 		g, _ := errgroup.WithContext(context.Background())
 		g.Go(c.A)
@@ -190,13 +190,19 @@ func runStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
 	}
 }
 
-func runGroupGoDep(b *testing.B, c *benchmarkCtx) {
+func loopGroupGo(b *testing.B, c *benchmarkCtx) {
+	type (
+		A struct{}
+		B struct{}
+		C struct{}
+		D struct{}
+	)
 	for b.Loop() {
-		var opts = group.Opts(group.WithDep)
-		_ = group.Go(context.Background(), opts,
-			group.MakeRunner(c.A).Name(opts, "a"),
-			group.MakeRunner(c.B).Name(opts, "b").Dep(opts, "a"),
-			group.MakeRunner(c.C).Name(opts, "c").Dep(opts, "a"),
-			group.MakeRunner(c.D).Name(opts, "d").Dep(opts, "b", "c"))
+		_ = NewGroup().
+			AddRunner(c.A).Key(A{}).
+			AddRunner(c.B).Key(B{}).Dep(A{}).
+			AddRunner(c.C).Key(C{}).Dep(A{}).
+			AddRunner(c.D).Key(D{}).Dep(B{}, C{}).
+			Go(context.Background())
 	}
 }

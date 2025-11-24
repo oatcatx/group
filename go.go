@@ -19,55 +19,51 @@ func Go(ctx context.Context, opts *Options, fs ...func() error) (err error) {
 	if opts == nil {
 		g, gtx := errgroup.WithContext(ctx)
 		g.SetLimit(len(fs)) // limit defaults to number of funcs
-		groupGo(gtx, g, nil, fs...)
+		exec(gtx, g, nil, fs...)
 		return g.Wait()
 	}
 
-	if 0 < opts.Limit && opts.Limit < len(opts.dep) {
-		return errors.New("limit cannot be less than the number of funcs with deps")
-	}
-	if opts.Prefix == "" {
-		opts.Prefix = "anonymous"
+	if 0 < opts.Limit && opts.Limit < len(fs) {
+		return errors.New("limit cannot be less than the number of funcs")
 	}
 	if opts.WithLog {
 		defer func(start time.Time) {
-			groupMonitor(ctx, fmt.Sprintf("Go%s", cond(opts.dep != nil, " | Dep", "")), opts.Prefix, start, opts.WithLog, err)
+			groupMonitor(ctx, "Go", opts.Prefix, start, opts.WithLog, err)
 		}(time.Now())
 	}
 
-	g, gtx := errgroup.WithContext(ctx)
-	g.SetLimit(cond(opts.Limit > 0, opts.Limit, len(fs))) // limit defaults to number of funcs
+	g, ctx := errgroup.WithContext(ctx)
+	limit := len(fs) // limit defaults to number of funcs
+	if opts.Limit > 0 {
+		limit = opts.Limit
+	}
+	g.SetLimit(limit)
 	// set timeout for group and fs
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
-		gtx, cancel = context.WithTimeout(gtx, opts.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		defer cancel()
 	}
-	if opts.dep == nil {
-		groupGo(gtx, g, opts, fs...)
-	} else {
-		// go runners with deps
-		// separate ctx for tolerance control
-		opts.dep.groupGo(ctx, gtx, g, opts)
-		// go runners without deps
-		groupGo(gtx, g, opts, filter(fs, func(f func() error) bool { return opts.dep[fptr(f)] == nil })...)
-	}
+
+	exec(ctx, g, opts, fs...)
 
 	// outer timeout control
 	if opts.Timeout > 0 {
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-gtx.Done(): // actual timeout
-				if errors.Is(gtx.Err(), context.DeadlineExceeded) {
-					if opts.WithLog {
-						slog.InfoContext(gtx, fmt.Sprintf("[Group Go%s] group %s timeout", cond(opts.dep != nil, " | Dep", ""), opts.Prefix), slog.Duration("after", opts.Timeout))
-					}
-					return errors.New("group timeout")
+		done := make(chan error, 1)
+		go func() {
+			done <- g.Wait()
+		}()
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) { // actual timeout
+				if opts.WithLog {
+					slog.InfoContext(ctx, fmt.Sprintf("[Group::Go] group %s timeout", opts.Prefix), slog.Duration("after", opts.Timeout))
 				}
-				return g.Wait()
+				return errors.New("group timeout")
 			}
+			return <-done
+		case err := <-done:
+			return err
 		}
 	}
 	return g.Wait()
@@ -83,38 +79,35 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 		g, ctx := errgroup.WithContext(ctx)
 		// limit defaults to number of funcs
 		g.SetLimit(len(fs))
-		return groupTryGo(ctx, g, nil, fs...), g.Wait()
+		return tryExec(ctx, g, nil, fs...), g.Wait()
 	}
 
-	if 0 < opts.Limit && opts.Limit < len(opts.dep) {
-		return false, errors.New("limit cannot be less than the number of funcs with deps")
+	if 0 < opts.Limit && opts.Limit < len(fs) {
+		return false, errors.New("limit cannot be less than the number of funcs")
 	}
 	if opts.Prefix == "" {
 		opts.Prefix = "anonymous"
 	}
 	if opts.WithLog {
 		defer func(start time.Time) {
-			groupMonitor(ctx, fmt.Sprintf("TryGo%s", cond(opts.dep != nil, " | Dep", "")), opts.Prefix, start, opts.WithLog, err)
+			groupMonitor(ctx, "TryGo", opts.Prefix, start, opts.WithLog, err)
 		}(time.Now())
 	}
 
 	g, gtx := errgroup.WithContext(ctx)
-	g.SetLimit(cond(opts.Limit > 0, opts.Limit, len(fs))) // limit defaults to the number of funcs
+	limit := len(fs) // limit defaults to number of funcs
+	if opts.Limit > 0 {
+		limit = opts.Limit
+	}
+	g.SetLimit(limit)
 	// set timeout for group and fs
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		gtx, cancel = context.WithTimeout(gtx, opts.Timeout)
 		defer cancel()
 	}
-	if opts.dep == nil {
-		ok = groupTryGo(gtx, g, opts, fs...)
-	} else {
-		// go runners with deps
-		// separate ctx for tolerance control
-		ok = opts.dep.groupTryGo(ctx, gtx, g, opts)
-		// go runners without deps
-		ok = ok && groupTryGo(gtx, g, opts, filter(fs, func(r func() error) bool { return opts.dep[fptr(r)] == nil })...)
-	}
+
+	ok = tryExec(gtx, g, opts, fs...)
 
 	// outer timeout control
 	if opts.Timeout > 0 {
@@ -125,7 +118,7 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 			case <-gtx.Done(): // actual timeout
 				if errors.Is(gtx.Err(), context.DeadlineExceeded) {
 					if opts.WithLog {
-						slog.InfoContext(gtx, fmt.Sprintf("[Group TryGo%s] group %s timeout", cond(opts.dep != nil, " | Dep", ""), opts.Prefix), slog.Duration("after", opts.Timeout))
+						slog.InfoContext(gtx, fmt.Sprintf("[TryGo] group %s timeout", opts.Prefix), slog.Duration("after", opts.Timeout))
 					}
 					return ok, errors.New("group timeout")
 				}
@@ -134,4 +127,56 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 		}
 	}
 	return ok, g.Wait()
+}
+
+func exec(ctx context.Context, g *errgroup.Group, opts *Options, fs ...func() error) {
+	for _, f := range fs {
+		g.Go(func() (err error) {
+			// ctx check before exec
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			// no opts short circuit
+			if opts == nil || !opts.WithLog && opts.ErrC == nil {
+				return SafeRun(ctx, f)
+			}
+
+			if opts.WithLog || opts.ErrC != nil {
+				defer func(start time.Time) {
+					funcMonitor(ctx, "[Go -> exec]", opts.Prefix, funcName(f), start, opts.WithLog, opts.ErrC, err)
+				}(time.Now())
+			}
+			return SafeRun(ctx, f)
+		})
+	}
+}
+
+func tryExec(ctx context.Context, g *errgroup.Group, opts *Options, fs ...func() error) bool {
+	ok := true
+	for _, f := range fs {
+		ok = ok && g.TryGo(func() (err error) {
+			// ctx check before exec
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			// no opts short circuit
+			if opts == nil || !opts.WithLog && opts.ErrC == nil {
+				return SafeRun(ctx, f)
+			}
+
+			if opts.WithLog || opts.ErrC != nil {
+				defer func(start time.Time) {
+					funcMonitor(ctx, "[TryGo -> exec]", opts.Prefix, funcName(f), start, opts.WithLog, opts.ErrC, err)
+				}(time.Now())
+			}
+			return SafeRun(ctx, f)
+		})
+	}
+	return ok
 }

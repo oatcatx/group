@@ -1,6 +1,6 @@
 # [Group] Concurrency Kit
 
-## Built on top of std errgroup
+## A lightweight, dependency-aware (yet another DAG) concurrency toolkit built on top of std errgroup, providing fine-grained control over concurrent task execution with minimal overhead.
 ## Much less overhead by optional features selected
 
 ## APIs
@@ -10,13 +10,15 @@
 
 `group.Opts(group.With...)`
 
-`Options.VerifyDep`
-
 ---
 
-`group.MakeRunner`
+`group.NewGroup`
 
-`runner.Name, runner.Dep, runner.Tolerant, runner.Verify`
+`Group.Add...` `Group.Node` `Group.Verify`
+
+`Group.Go`
+
+`Node.Key` `Node.Dep` `Node.WeakDep` `Node.FF` `Node.Verify`
 
 ---
 
@@ -25,85 +27,110 @@ Get options by `group.Opts(group.With...)`
 
 or by `group.Options{...}`
 
-## Dependencies
-Get dependency attached options: `var opts = group.Opts(group.WithDep)` (dependencies cannot be assigned directly)
+Available options:
+- `WithPrefix(string)` - Set group name for logging
+- `WithLimit(int)` - Set concurrency limit
+- `WithTimeout(time.Duration)` - Set group timeout
+- `WithLog` - Enable logging
+- `WithLogger(*slog.Logger)` - Use custom logger
+- `WithErrorCollector(chan error)` - Collect errors in channel
 
-Then use `Go` with `MakeRunner` and set the dependencies by assigning name (`runner.Name`) and dependencies (`runner.Dep`) string to the runner
+---
 
-*(You have to set the dependencies correctly, there's no guarantee if you set them wrong)*
+## Group Mode (DAG)
 
-***! Note: Multiple MakeRunners for the same function are still considered as one instance***
+### Features
 
-***! This can cause undefined behavior, avoid it unless you really know what you're doing***
+- **Dependency Management**: Define task dependencies with automatic execution ordering
+- **Weak Dependencies**: Continue execution even when upstream tasks fail
+- **Fast-Fail Control**: Configure tasks to halt group execution on error
+- **Built-in Store**: Share data between dependent tasks using context-based storage
+- **Timeout Control**: Set timeouts at the group level
+- **Concurrency Limits**: Control maximum concurrent goroutines
+- **Monitoring & Logging**: Optional execution monitoring and logging
+- **Cycle Detection**: Verify dependency graphs for cycles and missing dependencies
 
-## Usage
+
+### Usage
 Refer to the example package in this repo
 
-## Verify
-Dependencies can be verified by using `Options.Veirfy` and `runner.Verify` (dependency duplication, existence and cycle check)
+#### Basic Workflow
 
-`Options.Verify` will return an error if the dependency is broken
+Create a group using `NewGroup` with optional configurations, then add tasks using `AddRunner`, `AddTask`, or `AddSharedTask`. Each task can be assigned a unique key and specify its dependencies. Finally, execute the group with `Go` method.
 
-`runner.Verify` can be called in the invocation chain, which will check for the dependencies set prior to the call and **panic** if the dependency is broken
+
+#### Task Types
+
+**Simple Runner** - Basic function that returns an error. No access to context or shared state.
+
+**Context-Aware Task** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
+
+**Shared-State Task** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+
+
+### Verify
+Verify checks for cycles in the dependency graph by using `group.Verify()` or `Node.Verify()`
+
+---
 
 ## Benchmark
 ```
 goos: darwin
 goarch: arm64
-pkg: github.com/luckycatx/group/benchmark
+pkg: github.com/oatcatx/group/benchmark
 cpu: Apple M3 Pro
 BenchmarkGo
 
 BenchmarkGo/TinyWorkload
 BenchmarkGo/TinyWorkload/StdGoroutine
-BenchmarkGo/TinyWorkload/StdGoroutine-12         	  468334	      2189 ns/op	     256 B/op	      11 allocs/op
+BenchmarkGo/TinyWorkload/StdGoroutine-12         	   85225	     14676 ns/op	     258 B/op	      11 allocs/op
 BenchmarkGo/TinyWorkload/StdErrGroup
-BenchmarkGo/TinyWorkload/StdErrGroup-12          	  466860	      2428 ns/op	     400 B/op	      13 allocs/op
-BenchmarkGo/TinyWorkload/GroupGo
-BenchmarkGo/TinyWorkload/GroupGo-12              	  357048	      3547 ns/op	    1104 B/op	      25 allocs/op
-BenchmarkGo/TinyWorkload/GroupGoWithOpts
-BenchmarkGo/TinyWorkload/GroupGoWithOpts-12      	   91026	     13351 ns/op	    4099 B/op	      89 allocs/op
+BenchmarkGo/TinyWorkload/StdErrGroup-12          	   56398	     20374 ns/op	     400 B/op	      13 allocs/op
+BenchmarkGo/TinyWorkload/Go
+BenchmarkGo/TinyWorkload/Go-12                   	   43058	     27641 ns/op	    1105 B/op	      25 allocs/op
+BenchmarkGo/TinyWorkload/GoWithOpts
+BenchmarkGo/TinyWorkload/GoWithOpts-12           	   20499	     58025 ns/op	    5015 B/op	      91 allocs/op
 
 BenchmarkGo/SmallWorkload
 BenchmarkGo/SmallWorkload/StdGoroutine
-BenchmarkGo/SmallWorkload/StdGoroutine-12        	    1029	   1160579 ns/op	   12049 B/op	     201 allocs/op
+BenchmarkGo/SmallWorkload/StdGoroutine-12        	     991	   1271535 ns/op	   12149 B/op	     201 allocs/op
 BenchmarkGo/SmallWorkload/StdErrGroup
-BenchmarkGo/SmallWorkload/StdErrGroup-12         	    1021	   1161205 ns/op	   12160 B/op	     203 allocs/op
-BenchmarkGo/SmallWorkload/GroupGo
-BenchmarkGo/SmallWorkload/GroupGo-12             	    1035	   1153731 ns/op	   17201 B/op	     305 allocs/op
-BenchmarkGo/SmallWorkload/GroupGoWithOpts
-BenchmarkGo/SmallWorkload/GroupGoWithOpts-12     	    1017	   1184682 ns/op	   39022 B/op	     819 allocs/op
+BenchmarkGo/SmallWorkload/StdErrGroup-12         	     920	   1238819 ns/op	   12175 B/op	     203 allocs/op
+BenchmarkGo/SmallWorkload/Go
+BenchmarkGo/SmallWorkload/Go-12                  	     880	   1298515 ns/op	   17186 B/op	     305 allocs/op
+BenchmarkGo/SmallWorkload/GoWithOpts
+BenchmarkGo/SmallWorkload/GoWithOpts-12          	     876	   1405319 ns/op	   47737 B/op	     845 allocs/op
 
 BenchmarkGo/MediumWorkload
 BenchmarkGo/MediumWorkload/StdGoroutine
-BenchmarkGo/MediumWorkload/StdGoroutine-12       	     207	   5809449 ns/op	  120301 B/op	    2003 allocs/op
+BenchmarkGo/MediumWorkload/StdGoroutine-12       	     181	   6559549 ns/op	  122747 B/op	    2006 allocs/op
 BenchmarkGo/MediumWorkload/StdErrGroup
-BenchmarkGo/MediumWorkload/StdErrGroup-12        	     206	   5817464 ns/op	  120482 B/op	    2004 allocs/op
-BenchmarkGo/MediumWorkload/GroupGo
-BenchmarkGo/MediumWorkload/GroupGo-12            	     204	   5802622 ns/op	  168550 B/op	    3006 allocs/op
-BenchmarkGo/MediumWorkload/GroupGoWithOpts
-BenchmarkGo/MediumWorkload/GroupGoWithOpts-12    	     195	   6035044 ns/op	  378497 B/op	    8028 allocs/op
+BenchmarkGo/MediumWorkload/StdErrGroup-12        	     183	   6899276 ns/op	  120242 B/op	    2003 allocs/op
+BenchmarkGo/MediumWorkload/Go
+BenchmarkGo/MediumWorkload/Go-12                 	     181	   6719674 ns/op	  168533 B/op	    3005 allocs/op
+BenchmarkGo/MediumWorkload/GoWithOpts
+BenchmarkGo/MediumWorkload/GoWithOpts-12         	     165	   7242332 ns/op	  464363 B/op	    8276 allocs/op
 
 BenchmarkGo/LargeWorkload
 BenchmarkGo/LargeWorkload/StdGoroutine
-BenchmarkGo/LargeWorkload/StdGoroutine-12        	      25	  49994632 ns/op	 1209252 B/op	   20063 allocs/op
+BenchmarkGo/LargeWorkload/StdGoroutine-12        	      22	  51806746 ns/op	 1277066 B/op	   20161 allocs/op
 BenchmarkGo/LargeWorkload/StdErrGroup
-BenchmarkGo/LargeWorkload/StdErrGroup-12         	      25	  43359888 ns/op	 1204033 B/op	   20027 allocs/op
-BenchmarkGo/LargeWorkload/GroupGo
-BenchmarkGo/LargeWorkload/GroupGo-12             	      26	  46937872 ns/op	 1701123 B/op	   30185 allocs/op
-BenchmarkGo/LargeWorkload/GroupGoWithOpts
-BenchmarkGo/LargeWorkload/GroupGoWithOpts-12     	      24	  45862292 ns/op	 3810502 B/op	   80464 allocs/op
+BenchmarkGo/LargeWorkload/StdErrGroup-12         	      21	  53904347 ns/op	 1213831 B/op	   20037 allocs/op
+BenchmarkGo/LargeWorkload/Go
+BenchmarkGo/LargeWorkload/Go-12                  	      18	  61684032 ns/op	 1694099 B/op	   30037 allocs/op
+BenchmarkGo/LargeWorkload/GoWithOpts
+BenchmarkGo/LargeWorkload/GoWithOpts-12          	      18	  66239204 ns/op	 4632736 B/op	   82634 allocs/op
 ```
 
 ```
 goos: darwin
 goarch: arm64
-pkg: github.com/luckycatx/group/benchmark
+pkg: github.com/oatcatx/group/benchmark
 cpu: Apple M3 Pro
-BenchmarkGoDep
+BenchmarkGroupGo
 
-BenchmarkGoDep/StdErrGroup
-BenchmarkGoDep/StdErrGroup-12         	  675750	      1675 ns/op	     640 B/op	      17 allocs/op
-BenchmarkGoDep/GroupGo
-BenchmarkGoDep/GroupGo-12             	  211592	      6260 ns/op	    2272 B/op	      43 allocs/op
+BenchmarkGroupGo/StdErrGroup
+BenchmarkGroupGo/StdErrGroup-12         	   63068	     18095 ns/op	     641 B/op	      17 allocs/op
+BenchmarkGroupGo/GroupGo
+BenchmarkGroupGo/GroupGo-12             	   51577	     23430 ns/op	    2432 B/op	      40 allocs/op
 ```

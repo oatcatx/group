@@ -1,23 +1,20 @@
 package group
 
 import (
-	"errors"
+	"context"
 	"log/slog"
 	"time"
 )
 
-type option func(*Options)
-
 type Options struct {
-	Prefix  string        // group name, used for log, default is "anonymous"
+	Prefix  string        // group name, used for log
 	Limit   int           // concurrency limit
 	Timeout time.Duration // group timeout
 	ErrC    chan error    // error collector
 	WithLog bool
-
-	dep depMap           // dependency map
-	tol map[string]token // tolerance map
 }
+
+type option func(*Options)
 
 func Opts(opts ...option) *Options {
 	opt := &Options{}
@@ -35,15 +32,9 @@ func WithLogger(logger *slog.Logger) option {
 	return func(o *Options) { o.WithLog = true; slog.SetDefault(logger) }
 }
 
-var (
-	WithLog option = func(o *Options) { o.WithLog = true }
-	WithDep option = func(o *Options) { o.dep = make(depMap) }
-)
+var WithLog option = func(o *Options) { o.WithLog = true }
 
-func (o *Options) ValidateDep() error {
-	if o.dep == nil {
-		return nil
-	}
-	info := o.dep.verify(false)
-	return cond(info != "", errors.New(info), nil)
+// group specific
+func WithStore(ctx context.Context, store Storer) context.Context {
+	return context.WithValue(ctx, fetchKey{}, store)
 }
