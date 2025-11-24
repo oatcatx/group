@@ -1,7 +1,8 @@
 # [Group] Concurrency Kit
 
-## A lightweight, dependency-aware (yet another DAG) concurrency toolkit built on top of std errgroup, providing fine-grained control over concurrent task execution with minimal overhead.
-## Much less overhead by optional features selected
+A lightweight, dependency-aware (yet another DAG) concurrency toolkit built on top of std errgroup, providing fine-grained control over concurrent task execution with minimal overhead.
+
+*Much less overhead by optional features selected*
 
 ## APIs
 `group.Go(), group.TryGo()`
@@ -14,13 +15,9 @@
 
 `group.NewGroup`
 
-`Group.Add...` `Group.Node` `Group.Verify`
+`(Group).Add...`  **`Group.Go`**  `(Group).Node`  `(Group).Verify`
 
-`Group.Go`
-
-`Node.Key` `Node.Dep` `Node.WeakDep` `Node.FF` `Node.Verify`
-
----
+`Node.Key`  `Node.Dep`  `Node.WeakDep`  `Node.FF`  `Node.Verify`
 
 ## Options
 Get options by `group.Opts(group.With...)`
@@ -46,27 +43,22 @@ Available options:
 - **Fast-Fail Control**: Configure tasks to halt group execution on error
 - **Built-in Store**: Share data between dependent tasks using context-based storage
 - **Timeout Control**: Set timeouts at the group level
-- **Concurrency Limits**: Control maximum concurrent goroutines
 - **Monitoring & Logging**: Optional execution monitoring and logging
-- **Cycle Detection**: Verify dependency graphs for cycles and missing dependencies
-
 
 ### Usage
 Refer to the example package in this repo
 
-#### Basic Workflow
+#### [Basic Workflow]
 
 Create a group using `NewGroup` with optional configurations, then add tasks using `AddRunner`, `AddTask`, or `AddSharedTask`. Each task can be assigned a unique key and specify its dependencies. Finally, execute the group with `Go` method.
 
-
-#### Task Types
+#### [Task Types]
 
 **Simple Runner** - Basic function that returns an error. No access to context or shared state.
 
 **Context-Aware Task** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
 
 **Shared-State Task** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
-
 
 ### Verify
 Verify checks for cycles in the dependency graph by using `group.Verify()` or `Node.Verify()`
