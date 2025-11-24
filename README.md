@@ -62,7 +62,7 @@ Create a group using `NewGroup` with optional configurations, then add tasks usi
 ***🚁 Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
 Context-aware tasks will be able to communicate data through `Store` and `Fetch`.
 
-***🚢 Shared-Data Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
+***🚢 Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
 shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
 
 #### [More...]
