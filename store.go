@@ -17,9 +17,17 @@ type Storer interface {
 type storeKey struct{}
 type storeFunc func(any)
 
-func Store[T any](ctx context.Context, v T) {
+func Store[V any](ctx context.Context, v V) {
 	if f, _ := ctx.Value(storeKey{}).(storeFunc); f != nil {
 		f(v)
+	} else {
+		panic("missing store func in context")
+	}
+}
+
+func Put[K, V any](ctx context.Context, k K, v V) {
+	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
+		store.Store(k, v)
 	} else {
 		panic("missing store in context")
 	}
