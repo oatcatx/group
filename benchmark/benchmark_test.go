@@ -162,11 +162,6 @@ func (c *benchmarkCtx) D() error {
 
 func BenchmarkGroupGo(b *testing.B) {
 	fmt.Println()
-	runBenchmarkGroupGo(b)
-	fmt.Println()
-}
-
-func runBenchmarkGroupGo(b *testing.B) {
 	b.Run("StdErrGroup", func(b *testing.B) {
 		loopStdErrGroupDep(b, new(benchmarkCtx))
 	})
@@ -174,6 +169,7 @@ func runBenchmarkGroupGo(b *testing.B) {
 	b.Run("GroupGo", func(b *testing.B) {
 		loopGroupGo(b, new(benchmarkCtx))
 	})
+	fmt.Println()
 }
 
 func loopStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
@@ -191,13 +187,14 @@ func loopStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
 	}
 }
 
+type (
+	A struct{}
+	B struct{}
+	C struct{}
+	D struct{}
+)
+
 func loopGroupGo(b *testing.B, c *benchmarkCtx) {
-	type (
-		A struct{}
-		B struct{}
-		C struct{}
-		D struct{}
-	)
 	for b.Loop() {
 		_ = NewGroup().
 			AddRunner(c.A).Key(A{}).
