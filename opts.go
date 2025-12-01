@@ -6,12 +6,17 @@ import (
 	"time"
 )
 
+// group level interceptor
+type PreFunc func(context.Context) error
+type AfterFunc func(context.Context, error) error
 type Options struct {
 	Prefix  string        // group name, used for log
 	Limit   int           // concurrency limit
 	Timeout time.Duration // group timeout
 	ErrC    chan error    // error collector
 	WithLog bool
+	Pre     PreFunc
+	After   AfterFunc
 }
 
 type option func(*Options)
@@ -24,17 +29,24 @@ func Opts(opts ...option) *Options {
 	return opt
 }
 
-func WithPrefix(s string) option                { return func(o *Options) { o.Prefix = s } }
-func WithLimit(x int) option                    { return func(o *Options) { o.Limit = x } }
-func WithTimeout(t time.Duration) option        { return func(o *Options) { o.Timeout = t } }
+func WithPrefix(s string) option { return func(o *Options) { o.Prefix = s } }
+func WithLimit(x int) option {
+	if x <= 0 {
+		panic("limit must be positive")
+	}
+	return func(o *Options) { o.Limit = x }
+}
+func WithTimeout(t time.Duration) option {
+	if t <= 0 {
+		panic("timeout must be positive")
+	}
+	return func(o *Options) { o.Timeout = t }
+}
 func WithErrorCollector(errC chan error) option { return func(o *Options) { o.ErrC = errC } }
 func WithLogger(logger *slog.Logger) option {
 	return func(o *Options) { o.WithLog = true; slog.SetDefault(logger) }
 }
+func WithPreFunc(f PreFunc) option     { return func(o *Options) { o.Pre = f } }
+func WithAfterFunc(f AfterFunc) option { return func(o *Options) { o.After = f } }
 
 var WithLog option = func(o *Options) { o.WithLog = true }
-
-// group specific
-func WithStore(ctx context.Context, store Storer) context.Context {
-	return context.WithValue(ctx, fetchKey{}, store)
-}

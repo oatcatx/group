@@ -3,20 +3,35 @@ package group
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
-type node struct {
-	f   func() error
-	fc  func(ctx context.Context) error
-	fca func(ctx context.Context, arg any) error
+type Node interface {
+	Key() any
+	Dep() []any
+	WeakDep() []any
+	Exec(ctx context.Context, shared any) error
+}
 
-	idx    int
-	key    any
-	deps   []int // dependencies
-	to     []int // to nodes
-	weakTo []int // to weak nodes
-	ff     bool  // fast-fail flag
+type node struct {
+	idx              int
+	key              any
+	deps, to, weakTo []int // dependencies | to nodes | weak to nodes
+	f                func(ctx context.Context, shared any) error
+	nodeSpec
 	*Group
+}
+
+// node level interceptor
+type NodePreFunc func(ctx context.Context, shared any) error
+type NodeAfterFunc func(ctx context.Context, shared any, err error) error
+
+type nodeSpec struct {
+	ff      bool // fast-fail flag
+	retry   int
+	timeout time.Duration
+	pre     func(ctx context.Context, shared any) error
+	after   func(ctx context.Context, shared any, err error) error
 }
 
 func (n *node) Key(key any) *node {
@@ -59,8 +74,34 @@ func (n *node) WeakDep(keys ...any) *node {
 	return n
 }
 
-func (n *node) FF() *node {
+func (n *node) FastFail() *node {
 	n.ff = true
+	return n
+}
+
+func (n *node) Retry(times int) *node {
+	if times < 0 {
+		panic("retry times must be non-negative")
+	}
+	n.retry = times
+	return n
+}
+
+func (n *node) Timeout(t time.Duration) *node {
+	if t <= 0 {
+		panic("timeout must be positive")
+	}
+	n.timeout = t
+	return n
+}
+
+func (n *node) WithPreFunc(f NodePreFunc) *node {
+	n.pre = f
+	return n
+}
+
+func (n *node) WithAfterFunc(f NodeAfterFunc) *node {
+	n.after = f
 	return n
 }
 

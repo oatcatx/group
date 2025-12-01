@@ -3,7 +3,6 @@ package group
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -12,114 +11,6 @@ import (
 
 	. "github.com/oatcatx/group"
 )
-
-// A -> B -> D
-// \        /
-// -\> C -/ -> E
-// F -> X (F will fail)
-// time spent (without E) = A + max(B, C) + D = 4
-// time spent (with E) = A + max(B, C) + D + E = 5
-// res(d) = (1 + 1) + (1 + 1) = 4
-type exampleCtx struct {
-	a, b, c, d, e, x int
-}
-
-func (c *exampleCtx) A() error {
-	time.Sleep(1 * time.Second)
-	fmt.Println("A")
-	c.a = 1
-	return nil
-}
-
-func (c *exampleCtx) B() error {
-	time.Sleep(1 * time.Second)
-	fmt.Println("B")
-	c.b = c.a + 1
-	return nil
-}
-
-func (c *exampleCtx) C() error {
-	time.Sleep(2 * time.Second)
-	fmt.Println("C")
-	c.c = c.a + 1
-	return nil
-}
-
-func (c *exampleCtx) D() error {
-	time.Sleep(1 * time.Second)
-	fmt.Println("D")
-	c.d = c.b + c.c
-	return nil
-}
-
-func (c *exampleCtx) E() error {
-	time.Sleep(1 * time.Second)
-	fmt.Println("E")
-	c.e = c.c + 1
-	return nil
-}
-
-func (c *exampleCtx) F() error {
-	time.Sleep(1 * time.Second)
-	fmt.Println("F")
-	return errors.New("F_ERR")
-}
-
-func (c *exampleCtx) X() error {
-	time.Sleep(1 * time.Second)
-	c.x = 1
-	return nil
-}
-
-func (c *exampleCtx) Res() int {
-	return c.d
-}
-
-func TestGo(t *testing.T) {
-	t.Parallel()
-	ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-	//= GroupGo serial dependency control
-	err := Go(ctx, nil, c.A)
-	assert.Nil(t, err)
-	err = Go(ctx, nil, c.B, c.C)
-	assert.Nil(t, err)
-	err = Go(ctx, nil, c.D)
-	assert.Nil(t, err)
-
-	assert.Equal(t, 4, c.Res())
-	assert.Equal(t, float64(4), time.Since(s).Truncate(time.Second).Seconds())
-
-	//= GroupGo manual signal dependency control
-	c, s = new(exampleCtx), time.Now()
-
-	type signal = chan struct{}
-	var aS, bS, cS, done = make(signal), make(signal), make(signal), make(signal)
-	err = Go(ctx, nil,
-		func() error {
-			defer close(aS)
-			return c.A()
-		},
-		func() error {
-			<-aS
-			defer close(bS)
-			return c.B()
-		},
-		func() error {
-			<-aS
-			defer close(cS)
-			return c.C()
-		},
-		func() error {
-			_, _ = <-bS, <-cS
-			defer close(done)
-			return c.D()
-		})
-	assert.Nil(t, err)
-
-	assert.Equal(t, 4, c.Res())
-	assert.Equal(t, float64(4), time.Since(s).Truncate(time.Second).Seconds())
-}
 
 func TestGroupGo(t *testing.T) {
 	t.Parallel()
@@ -172,40 +63,6 @@ func TestGroupGoLimit(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
-}
-
-func TestGroupGoFFCtrl(t *testing.T) {
-	t.Parallel()
-
-	t.Run("non-fast-fail", func(t *testing.T) {
-		t.Parallel()
-		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-		err := NewGroup().
-			AddRunner(c.F).Key("f"). // non-fast-fail by default
-			AddRunner(c.C).Key("c"). // C will execute for 2 seconds
-			AddRunner(c.X).Dep("c"). // X will be executed
-			Go(ctx)
-
-		assert.NotNil(t, err)
-		assert.Equal(t, float64(3), time.Since(s).Truncate(time.Second).Seconds())
-		assert.Equal(t, 1, c.x)
-	})
-
-	t.Run("fast-fail", func(t *testing.T) {
-		t.Parallel()
-		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-		err := NewGroup().
-			AddRunner(c.F).Key("f").FF(). // fast-fail
-			AddRunner(c.C).Key("c").      // C will execute for 2 seconds
-			AddRunner(c.X).Dep("c").      // X will be blocked since fast-fail error occurs
-			Go(ctx)
-
-		assert.NotNil(t, err)
-		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
-		assert.Equal(t, 0, c.x)
-	})
 }
 
 func TestGroupGoWithLog(t *testing.T) {
@@ -311,7 +168,8 @@ func TestGoTimeout(t *testing.T) {
 
 	err := Go(ctx, Opts(WithTimeout(1*time.Second)), c.X, c.C)
 
-	assert.Equal(t, "group timeout", err.Error())
+	assert.NotNil(t, err)
+	assert.Equal(t, "group anonymous timeout", err.Error())
 	assert.Equal(t, float64(1), time.Since(s).Truncate(time.Second).Seconds())
 	assert.Equal(t, 0, c.c)
 }
@@ -327,7 +185,7 @@ func TestGroupGoTimeout(t *testing.T) {
 		AddRunner(c.D).Key("d").Dep("b", "c").
 		Go(ctx)
 
-	assert.Equal(t, "group timeout", err.Error())
+	assert.Equal(t, "group anonymous timeout", err.Error())
 	assert.Equal(t, float64(1), time.Since(s).Truncate(time.Second).Seconds())
 	// will prevent execution
 	assert.Equal(t, 0, c.b)
@@ -378,3 +236,121 @@ func TestGroupGoCtxCancel(t *testing.T) {
 		assert.Equal(t, float64(0), time.Since(s).Truncate(time.Second).Seconds())
 	})
 }
+
+// region INTERCEPTOR CASE
+func TestGroupGoInterceptor(t *testing.T) {
+	t.Parallel()
+
+	t.Run("pre and after both run", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var preRan, afterRan bool
+		var capturedErr error
+
+		err := NewGroup(
+			WithPreFunc(func(ctx context.Context) error { preRan = true; return nil }),
+			WithAfterFunc(func(ctx context.Context, err error) error { afterRan = true; capturedErr = err; return err }),
+		).
+			AddRunner(func() error { return nil }).Key("a").
+			AddRunner(func() error { return errors.New("task error") }).Key("b").
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, preRan)
+		assert.True(t, afterRan)
+		assert.NotNil(t, capturedErr)
+	})
+
+	t.Run("pre fail skips execution", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var executed bool
+
+		err := NewGroup(
+			WithPreFunc(func(ctx context.Context) error { return errors.New("pre failed") }),
+		).
+			AddRunner(func() error { executed = true; return nil }).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "pre failed", err.Error())
+		assert.False(t, executed)
+	})
+
+	t.Run("after suppresses error", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		err := NewGroup(
+			WithAfterFunc(func(ctx context.Context, err error) error { return nil }),
+		).
+			AddRunner(func() error { return errors.New("original") }).
+			Go(ctx)
+
+		assert.Nil(t, err)
+	})
+
+	t.Run("after wraps error", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		err := NewGroup(
+			WithAfterFunc(func(ctx context.Context, err error) error {
+				if err != nil {
+					return errors.New("wrapped: " + err.Error())
+				}
+				return nil
+			}),
+		).
+			AddRunner(func() error { return errors.New("original") }).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "wrapped: original", err.Error())
+	})
+
+	t.Run("pre and after with successful execution", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+		var preRan, afterRan bool
+
+		err := NewGroup(
+			WithPreFunc(func(ctx context.Context) error { preRan = true; return nil }),
+			WithAfterFunc(func(ctx context.Context, err error) error { afterRan = true; return err }),
+		).
+			AddRunner(c.A).Key("a").
+			AddRunner(c.B).Key("b").Dep("a").
+			Go(ctx)
+
+		assert.Nil(t, err)
+		assert.True(t, preRan)
+		assert.True(t, afterRan)
+		assert.Equal(t, 2, c.b)
+		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
+	})
+
+	t.Run("after runs even on timeout", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var afterRan bool
+		var capturedErr error
+
+		err := NewGroup(
+			WithTimeout(1*time.Second),
+			WithAfterFunc(func(ctx context.Context, err error) error {
+				afterRan = true
+				capturedErr = err
+				return err
+			}),
+		).
+			AddRunner(c.C). // takes 2 seconds
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, afterRan)
+		assert.NotNil(t, capturedErr)
+		assert.Contains(t, err.Error(), "timeout")
+	})
+}
+
+

@@ -31,24 +31,32 @@ func NewGroup(opts ...option) *Group {
 }
 
 func (g *Group) AddRunner(runner func() error) *node {
-	n := &node{f: runner, idx: g.x, Group: g}
+	n := &node{f: func(context.Context, any) error { return runner() }, idx: g.x, Group: g}
 	g.nodes = append(g.nodes, n)
 	g.x++
 	return n
 }
 
 func (g *Group) AddTask(task func(context.Context) error) *node {
-	n := &node{fc: task, idx: g.x, Group: g}
+	n := &node{f: func(ctx context.Context, _ any) error { return task(ctx) }, idx: g.x, Group: g}
 	g.nodes = append(g.nodes, n)
 	g.x++
 	return n
 }
 
 func (g *Group) AddSharedTask(task func(context.Context, any) error) *node {
-	n := &node{fca: task, idx: g.x, Group: g}
+	n := &node{f: task, idx: g.x, Group: g}
 	g.nodes = append(g.nodes, n)
 	g.x++
 	return n
+}
+
+func (g *Group) AddNode(n Node) *node {
+	node := &node{f: n.Exec, idx: g.x, Group: g}
+	node.Key(n.Key()).Dep(n.Dep()...).WeakDep(n.WeakDep()...)
+	g.nodes = append(g.nodes, node)
+	g.x++
+	return node
 }
 
 func (g *Group) Node(key any) *node {
@@ -73,12 +81,14 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 		}(time.Now())
 	}
 
-	eg, ctx := errgroup.WithContext(ctx)
 	limit := len(g.nodes) // limit defaults to the number of nodes
 	if g.Limit > 0 {
 		limit = g.Limit
 	}
+
+	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(limit)
+
 	// group timeout
 	if g.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -86,7 +96,13 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 		defer cancel()
 	}
 
-	groupErrs := make([]error, len(g.nodes))
+	// group pre-execution interceptor
+	if g.Pre != nil {
+		if err = g.Pre(ctx); err != nil {
+			return err
+		}
+	}
+	var groupErrs = make([]error, len(g.nodes))
 	var xshared any
 	if len(shared) == 1 {
 		xshared = shared[0]
@@ -97,6 +113,10 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 	defer func() {
 		if err == nil {
 			err = leafError(g.nodes, groupErrs)
+		}
+		// group post-execution interceptor
+		if g.After != nil {
+			err = g.After(ctx, err)
 		}
 	}()
 
@@ -112,11 +132,11 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 				if g.WithLog {
 					slog.InfoContext(ctx, fmt.Sprintf("[Group::Group.Go] group %s timeout", g.Prefix), slog.Duration("after", g.Timeout))
 				}
-				return errors.New("group timeout")
+				return fmt.Errorf("group %s timeout", g.Prefix)
 			}
 			return <-done
-		case err := <-done:
-			return err
+		case err = <-done:
+			return
 		}
 	}
 	return eg.Wait()
@@ -140,68 +160,106 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 			defer func() {
 				ok := err == nil
 				if !ok {
-					groupErrs[n.idx] = wrapError(n, err, groupErrs)
-					// fast-fail will cancel the group context with current node's error chain
+					groupErrs[n.idx], err = wrapError(n, err, groupErrs), nil // clear non-fast-fail error
 					if n.ff {
-						err = groupErrs[n.idx]
+						err = groupErrs[n.idx] // fast-fail will cancel the group context with current node's error chain
 						return
 					}
-					err = nil // clear non-fast-fail error
 				}
 
-				if n.key == nil {
-					return
-				}
 				// notify
-				notify := func(idx int) {
-					if atomic.AddUint32(&indegree[idx], ^uint32(0)) == 0 {
-						run(g.nodes[idx])
+				if n.key != nil {
+					notify := func(idx int) {
+						if atomic.AddUint32(&indegree[idx], ^uint32(0)) == 0 {
+							run(g.nodes[idx])
+						}
 					}
-				}
-				if ok {
-					for _, toIdx := range n.to {
-						notify(toIdx)
-					}
-				} else { // if non-fast-fail error occurs, only notify nodes that weakly depend on it
-					for _, toIdx := range n.weakTo {
-						notify(toIdx)
+					if ok {
+						for _, toIdx := range n.to {
+							notify(toIdx)
+						}
+					} else { // if non-fast-fail error occurs, only notify nodes that weakly depend on it
+						for _, toIdx := range n.weakTo {
+							notify(toIdx)
+						}
 					}
 				}
 			}()
 
 			if g.WithLog || g.ErrC != nil {
 				defer func(start time.Time) {
-					var name string
-					switch {
-					case n.f != nil:
-						name = funcName(n.f)
-					case n.fc != nil:
-						name = funcName(n.fc)
-					case n.fca != nil:
-						name = funcName(n.fca)
-					}
-					funcMonitor(ctx, "Group.Go —> exec", g.Prefix, name, start, g.WithLog, g.ErrC, err)
+					nodeMonitor(ctx, g.Prefix, n.key, start, g.WithLog, g.ErrC, err)
 				}(time.Now())
 			}
 
-			var f = func(ctx context.Context) error {
-				switch {
-				case n.f != nil:
-					return SafeRun(ctx, n.f)
-				case n.fc != nil:
-					return SafeRunCtx(ctx, n.fc)
-				case n.fca != nil:
-					return SafeRunCtxShared(ctx, n.fca, shared)
-				}
-				return nil
-			}
 			if n.key != nil && store != nil {
 				// wrap store func
-				return f(context.WithValue(ctx, storeKey{}, storeFunc(func(v any) { store.Store(n.key, v) })))
+				storeF := n.f
+				n.f = func(ctx context.Context, shared any) error {
+					return storeF(context.WithValue(ctx, storeKey{}, storeFunc(func(v any) { store.Store(n.key, v) })), shared)
+				}
 			}
-			return f(ctx)
+			if n.retry > 0 {
+				// wrap retry func
+				retryF := n.f
+				n.f = func(ctx context.Context, shared any) (err error) {
+					for i := range n.retry + 1 {
+						if err = retryF(ctx, shared); err == nil {
+							break
+						}
+						if g.WithLog {
+							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s retry #%d", g.Prefix, n.key, i+1))
+						}
+					}
+					return
+				}
+			}
+			// wrap pre/after interceptors
+			if n.pre != nil || n.after != nil {
+				innerF := n.f
+				n.f = func(ctx context.Context, shared any) error {
+					// pre-execution interceptor
+					if n.pre != nil {
+						if err := n.pre(ctx, shared); err != nil {
+							return err
+						}
+					}
+					err := innerF(ctx, shared)
+					// post-execution interceptor
+					if n.after != nil {
+						return n.after(ctx, shared, err)
+					}
+					return err
+				}
+			}
+
+			if n.timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel := context.WithTimeout(ctx, n.timeout)
+				defer cancel()
+
+				done := make(chan error, 1)
+				go func() {
+					done <- SafeRunNode(ctx, n.f, shared)
+				}()
+				select {
+				case <-ctx.Done():
+					if errors.Is(ctx.Err(), context.DeadlineExceeded) { // actual timeout
+						if g.WithLog {
+							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s timeout", g.Prefix, n.key), slog.Duration("after", g.Timeout))
+						}
+						return fmt.Errorf("node %v timeout", n.key)
+					}
+					return <-done
+				case err = <-done:
+					return
+				}
+			}
+			return SafeRunNode(ctx, n.f, shared)
 		})
 	}
+
+	// run root nodes
 	for _, node := range g.nodes {
 		if len(node.deps) == 0 {
 			run(node)

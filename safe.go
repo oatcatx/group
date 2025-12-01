@@ -21,12 +21,7 @@ func SafeRun(ctx context.Context, f func() error) error {
 	return f()
 }
 
-func SafeRunCtx(ctx context.Context, f func(context.Context) error) error {
-	defer RecoverContext(ctx)
-	return f(ctx)
-}
-
-func SafeRunCtxShared(ctx context.Context, f func(context.Context, any) error, shared any) error {
+func SafeRunNode(ctx context.Context, f func(context.Context, any) error, shared any) error {
 	defer RecoverContext(ctx)
 	return f(ctx, shared)
 }

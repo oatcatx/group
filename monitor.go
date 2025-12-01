@@ -27,7 +27,7 @@ func funcMonitor(ctx context.Context, method, prefix, name string, start time.Ti
 	}
 	if errC != nil && err != nil {
 		select { // avoid blocking
-		case errC <- fmt.Errorf("%s failed: %w", name, err):
+		case errC <- fmt.Errorf("func %s failed: %w", name, err):
 		default:
 		}
 	}
@@ -43,4 +43,19 @@ func funcName(f any) string {
 		return "<unknown>"
 	}
 	return fn.Name()
+}
+
+func nodeMonitor(ctx context.Context, prefix string, key any, start time.Time, log bool, errC chan error, err error) {
+	if log {
+		slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s done", prefix, key), slog.Duration("time_to_go", time.Since(start)))
+		if err != nil {
+			slog.ErrorContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s failed", prefix, key), slog.String("err", err.Error()))
+		}
+	}
+	if errC != nil && err != nil {
+		select { // avoid blocking
+		case errC <- fmt.Errorf("node %s failed: %w", key, err):
+		default:
+		}
+	}
 }

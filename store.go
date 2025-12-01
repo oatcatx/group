@@ -4,6 +4,11 @@ import (
 	"context"
 )
 
+// context with store
+func WithStore(ctx context.Context, store Storer) context.Context {
+	return context.WithValue(ctx, fetchKey{}, store)
+}
+
 type Storer interface {
 	Store(key any, value any)
 	Load(key any) (value any, ok bool)

@@ -23,29 +23,44 @@ func Go(ctx context.Context, opts *Options, fs ...func() error) (err error) {
 		return g.Wait()
 	}
 
-	if 0 < opts.Limit && opts.Limit < len(fs) {
-		return errors.New("limit cannot be less than the number of funcs")
+	if opts.Prefix == "" {
+		opts.Prefix = "anonymous" // default prefix
 	}
+
 	if opts.WithLog {
 		defer func(start time.Time) {
 			groupMonitor(ctx, "Go", opts.Prefix, start, opts.WithLog, err)
 		}(time.Now())
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
 	limit := len(fs) // limit defaults to number of funcs
 	if opts.Limit > 0 {
 		limit = opts.Limit
 	}
+
+	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(limit)
-	// set timeout for group and fs
+
+	// group timeout
 	if opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		defer cancel()
 	}
 
+	// group pre-execution interceptor
+	if opts.Pre != nil {
+		if err := opts.Pre(ctx); err != nil {
+			return err
+		}
+	}
 	exec(ctx, g, opts, fs...)
+	// group post-execution interceptor
+	if opts.After != nil {
+		defer func() {
+			err = opts.After(ctx, err)
+		}()
+	}
 
 	// outer timeout control
 	if opts.Timeout > 0 {
@@ -59,11 +74,11 @@ func Go(ctx context.Context, opts *Options, fs ...func() error) (err error) {
 				if opts.WithLog {
 					slog.InfoContext(ctx, fmt.Sprintf("[Group::Go] group %s timeout", opts.Prefix), slog.Duration("after", opts.Timeout))
 				}
-				return errors.New("group timeout")
+				return fmt.Errorf("group %s timeout", opts.Prefix)
 			}
 			return <-done
-		case err := <-done:
-			return err
+		case err = <-done:
+			return
 		}
 	}
 	return g.Wait()
@@ -82,7 +97,7 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 		return tryExec(ctx, g, nil, fs...), g.Wait()
 	}
 
-	if 0 < opts.Limit && opts.Limit < len(fs) {
+	if opts.Limit < len(fs) {
 		return false, errors.New("limit cannot be less than the number of funcs")
 	}
 	if opts.Prefix == "" {
@@ -107,23 +122,37 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 		defer cancel()
 	}
 
+	// group pre-execution interceptor
+	if opts.Pre != nil {
+		if err = opts.Pre(ctx); err != nil {
+			return
+		}
+	}
 	ok = tryExec(gtx, g, opts, fs...)
+	// group post-execution interceptor
+	if opts.After != nil {
+		defer func() {
+			err = opts.After(ctx, err)
+		}()
+	}
 
 	// outer timeout control
 	if opts.Timeout > 0 {
-		for {
-			select {
-			case <-ctx.Done():
-				return ok, ctx.Err()
-			case <-gtx.Done(): // actual timeout
-				if errors.Is(gtx.Err(), context.DeadlineExceeded) {
-					if opts.WithLog {
-						slog.InfoContext(gtx, fmt.Sprintf("[TryGo] group %s timeout", opts.Prefix), slog.Duration("after", opts.Timeout))
-					}
-					return ok, errors.New("group timeout")
+		done := make(chan error, 1)
+		go func() {
+			done <- g.Wait()
+		}()
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) { // actual timeout
+				if opts.WithLog {
+					slog.InfoContext(ctx, fmt.Sprintf("[Group::TryGo] group %s timeout", opts.Prefix), slog.Duration("after", opts.Timeout))
 				}
-				return ok, g.Wait()
+				return ok, fmt.Errorf("group %s timeout", opts.Prefix)
 			}
+			return ok, <-done
+		case err = <-done:
+			return
 		}
 	}
 	return ok, g.Wait()
