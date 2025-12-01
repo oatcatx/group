@@ -13,6 +13,7 @@ import (
 	. "github.com/oatcatx/group"
 )
 
+// region TASK GEN
 // Task represents a unit of work to benchmark
 type Task struct {
 	ID       int
@@ -51,8 +52,6 @@ func setupFuncs(tasks []Task) []func() error {
 	return fs
 }
 
-//= BENCHMARK
-
 func init() {
 	// discard log output
 	slog.SetDefault(slog.New(slog.DiscardHandler))
@@ -68,6 +67,9 @@ var cases = []struct {
 	{"Medium", 1000, 10000, 5 * time.Millisecond},
 	{"Large", 10000, 100000, 10 * time.Millisecond},
 }
+
+// region GO
+//= BENCHMARK - Go
 
 func BenchmarkGo(b *testing.B) {
 	fmt.Println()
@@ -132,7 +134,6 @@ func loopGo(b *testing.B, opts *Options, fs ...func() error) {
 }
 
 // region GROUP
-
 //= BENCHMARK - Group
 
 type benchmarkCtx struct {
