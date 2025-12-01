@@ -40,11 +40,12 @@ Available options:
 
 - **🔗 Dependency Management**: Define task dependencies with automatic execution ordering
 - **🧩 Weak Dependencies**: Continue execution even when upstream tasks fail
-- **💥 Fast-Fail Control**: Configure tasks to halt group execution on error
 - **📦 Built-in Store**: Share data between dependent tasks using context-based storage
-- **⏱️ Timeout Control**: Set timeouts at the group level
+- **💥 Fast-Fail Control**: Configure tasks to halt group execution on error
 - **🔄 Retry Mechanism**: Configure automatic retry for individual nodes
 - **🎣 Interceptors**: Pre and post-execution hooks at both group and node level
+- **🔙 Rollback Mechanism**: Define compensation logic to revert changes when tasks fail
+- **⏱️ Timeout Control**: Set timeouts at the group level
 - **📊 Monitoring & Logging**: Optional execution monitoring and logging
 
 #### Error Propagation
@@ -76,6 +77,7 @@ shared-state task will be able to access predefined shared data via the shared a
 - **`WithRetry(int)`** - Set retry attempts on failure
 - **`WithPreFunc(NodePreFunc)`** - Set node pre-execution interceptor
 - **`WithAfterFunc(NodeAfterFunc)`** - Set node post-execution interceptor
+- **`WithRollback(RollbackFunc)`** - Set compensation function executed on failure
 - **`WithTimeout(time.Duration)`** - Set node-specific timeout
 
 #### [More...]
