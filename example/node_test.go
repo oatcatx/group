@@ -13,10 +13,6 @@ import (
 	. "github.com/oatcatx/group"
 )
 
-func TestGroupGoNodeInterface(t *testing.T) {
-	t.Parallel()
-}
-
 func TestGroupGoNodeFFAndBlock(t *testing.T) {
 	t.Parallel()
 
@@ -48,58 +44,6 @@ func TestGroupGoNodeFFAndBlock(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
 		assert.Equal(t, 0, c.x)
-	})
-}
-
-func TestGroupGoNodeTimeout(t *testing.T) {
-	t.Parallel()
-
-	t.Run("node timeout blocks downstream", func(t *testing.T) {
-		t.Parallel()
-		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-		err := NewGroup().
-			AddRunner(c.A).Key("a").
-			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
-			AddRunner(c.D).Key("d").Dep("c").
-			Go(ctx)
-
-		assert.NotNil(t, err)
-		assert.Equal(t, "node c timeout", err.Error())
-		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds()) // elapsed = A(1s) + C timeout(1s) = 2s
-		assert.Equal(t, 0, c.d)                                                    // D should not execute
-	})
-
-	t.Run("node timeout with weak dependency", func(t *testing.T) {
-		t.Parallel()
-		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-		err := NewGroup().
-			AddRunner(c.A).Key("a").
-			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
-			AddRunner(c.X).Key("x").WeakDep("c").                          // X should execute despite C timeout
-			Go(ctx)
-
-		assert.NotNil(t, err)
-		assert.Equal(t, "node c timeout", err.Error())
-		assert.Equal(t, float64(3), time.Since(s).Truncate(time.Second).Seconds()) // elapsed = A(1s) + C timeout(1s) + X(1s) = 3s
-		assert.Equal(t, 1, c.x)                                                    // X should execute
-	})
-
-	t.Run("multiple node timeouts", func(t *testing.T) {
-		t.Parallel()
-		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
-
-		err := NewGroup().
-			AddRunner(c.B).Key("b").WithTimeout(500 * time.Millisecond). // B takes 1s but timeout at 500ms
-			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second).        // C takes 2s but timeout at 1s
-			Go(ctx)
-
-		assert.NotNil(t, err)
-		assert.Equal(t, errors.Join(
-			errors.New("node b timeout"), errors.New("node c timeout"),
-		).Error(), err.Error())
-		assert.Equal(t, float64(1), time.Since(s).Truncate(time.Second).Seconds()) // timeout in parallel hence elapsed = max(1s, 500ms) = 1s
 	})
 }
 
@@ -388,15 +332,15 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
 	})
 
-	t.Run("node after runs even on timeout", func(t *testing.T) {
+	t.Run("node after runs even on group timeout", func(t *testing.T) {
 		t.Parallel()
 		ctx, c := context.Background(), new(exampleCtx)
 		var afterRan bool
 		var capturedErr error
 		var mu sync.Mutex
 
-		err := NewGroup().
-			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+		err := NewGroup(WithTimeout(1 * time.Second)).
+			AddRunner(c.C).Key("c"). // C takes 2s but timeout at 1s
 			WithAfterFunc(func(ctx context.Context, shared any, err error) error {
 				mu.Lock()
 				afterRan = true
@@ -407,7 +351,7 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 			Go(ctx)
 
 		assert.NotNil(t, err)
-		assert.Equal(t, "node c timeout", err.Error())
+		assert.Equal(t, "group anonymous timeout", err.Error())
 
 		// wait for node execution to finish (group will early return on timeout)
 		time.Sleep(2 * time.Second)
@@ -416,6 +360,27 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 		assert.True(t, afterRan)
 		assert.Nil(t, capturedErr) // group level timeout error will not be captured in node
 		mu.Unlock()
+	})
+
+	t.Run("node after runs with node timeout", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var afterRan bool
+		var capturedErr error
+
+		err := NewGroup().
+			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+			WithAfterFunc(func(ctx context.Context, shared any, err error) error {
+				afterRan = true
+				capturedErr = err
+				return err
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "node c timeout", err.Error())
+		assert.True(t, afterRan)
+		assert.NotNil(t, capturedErr) // will capture timeout error
 	})
 
 	t.Run("node interceptor with retry", func(t *testing.T) {
@@ -518,5 +483,341 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "modified: original")
+	})
+}
+
+func TestGroupGoNodeTimeout(t *testing.T) {
+	t.Parallel()
+
+	t.Run("node timeout blocks downstream", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.A).Key("a").
+			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+			AddRunner(c.D).Key("d").Dep("c").
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "node c timeout", err.Error())
+		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds()) // elapsed = A(1s) + C timeout(1s) = 2s
+		assert.Equal(t, 0, c.d)                                                    // D should not execute
+	})
+
+	t.Run("node timeout with weak dependency", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.A).Key("a").
+			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+			AddRunner(c.X).Key("x").WeakDep("c").                          // X should execute despite C timeout
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "node c timeout", err.Error())
+		assert.Equal(t, float64(3), time.Since(s).Truncate(time.Second).Seconds()) // elapsed = A(1s) + C timeout(1s) + X(1s) = 3s
+		assert.Equal(t, 1, c.x)                                                    // X should execute
+	})
+
+	t.Run("multiple node timeouts", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.B).Key("b").WithTimeout(500 * time.Millisecond). // B takes 1s but timeout at 500ms
+			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second).        // C takes 2s but timeout at 1s
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, errors.Join(
+			errors.New("node b timeout"), errors.New("node c timeout"),
+		).Error(), err.Error())
+		assert.Equal(t, float64(1), time.Since(s).Truncate(time.Second).Seconds()) // timeout in parallel hence elapsed = max(1s, 500ms) = 1s
+	})
+}
+
+func TestGroupGoNodeRollback(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rollback runs on node failure", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var rollbackRan bool
+		var capturedErr error
+
+		err := NewGroup().
+			AddRunner(func() error { return errors.New("task failed") }).Key("a").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				capturedErr = err
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, rollbackRan)
+		assert.Equal(t, "task failed", capturedErr.Error())
+	})
+
+	t.Run("rollback does not run on success", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var rollbackRan bool
+
+		err := NewGroup().
+			AddRunner(func() error { return nil }).Key("a").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				return nil
+			}).
+			Go(ctx)
+
+		assert.Nil(t, err)
+		assert.False(t, rollbackRan)
+	})
+
+	t.Run("rollback with shared state", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		shared := &sharedUnit{mark: "INIT"}
+
+		err := NewGroup().
+			AddSharedTask(func(ctx context.Context, s any) error {
+				if unit, ok := s.(*sharedUnit); ok {
+					unit.Lock()
+					unit.mark = "MODIFIED"
+					unit.Unlock()
+				}
+				return errors.New("task failed")
+			}).Key("a").
+			WithRollback(func(ctx context.Context, s any, err error) error {
+				if unit, ok := s.(*sharedUnit); ok {
+					unit.Lock()
+					unit.mark = "ROLLBACK"
+					unit.Unlock()
+				}
+				return nil
+			}).
+			Go(ctx, shared)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "ROLLBACK", shared.mark)
+	})
+
+	t.Run("rollback error is combined with task error", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		err := NewGroup().
+			AddRunner(func() error { return errors.New("task failed") }).Key("a").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				return errors.New("rollback failed")
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "task failed")
+		assert.Contains(t, err.Error(), "rollback failed")
+	})
+
+	t.Run("multiple nodes with rollback", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var rollbackA, rollbackB, rollbackC bool
+
+		err := NewGroup().
+			AddRunner(func() error { return nil }).Key("a").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackA = true
+				return nil
+			}).
+			AddRunner(func() error { return errors.New("b failed") }).Key("b").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackB = true
+				return nil
+			}).
+			AddRunner(func() error { return errors.New("c failed") }).Key("c").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackC = true
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, rollbackA)
+		assert.True(t, rollbackB)
+		assert.True(t, rollbackC)
+	})
+
+	t.Run("rollback with retry", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var attempts int
+		var rollbackCount int
+
+		alwaysFail := func() error {
+			attempts++
+			return fmt.Errorf("attempt %d failed", attempts)
+		}
+
+		err := NewGroup().
+			AddRunner(alwaysFail).Key("a").WithRetry(2).
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackCount++
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, 3, attempts)      // initial + 2 retries
+		assert.Equal(t, 1, rollbackCount) // rollback runs once after all retries exhausted
+	})
+
+	t.Run("not rollbacking when group timeout", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var rollbackRan bool
+		var capturedErr error
+
+		err := NewGroup(WithTimeout(1 * time.Second)).
+			AddRunner(c.C).Key("c"). // C takes 2s but timeout at 1s
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				capturedErr = err
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "group anonymous timeout", err.Error())
+		assert.False(t, rollbackRan)
+		assert.Nil(t, capturedErr) // timeout error happens at group level
+	})
+
+	t.Run("not rollbacking when group timeout", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var rollbackRan bool
+		var capturedErr error
+
+		err := NewGroup(WithTimeout(1 * time.Second)).
+			AddRunner(c.C).Key("c"). // C takes 2s but timeout at 1s
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				capturedErr = err
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "group anonymous timeout", err.Error())
+		assert.False(t, rollbackRan) // rollback is tracked when node is done however group timeout occurs first
+		assert.Nil(t, capturedErr)   // timeout error happens at group level
+	})
+
+	t.Run("rollback with node timeout", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var rollbackRan bool
+		var capturedErr error
+
+		err := NewGroup().
+			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				capturedErr = err
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "node c timeout", err.Error())
+
+		// wait for rollback to execute
+		time.Sleep(1 * time.Second)
+
+		assert.True(t, rollbackRan)
+		assert.NotNil(t, capturedErr)
+	})
+
+	t.Run("rollback with pre and after functions", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var preRan, afterRan, rollbackRan bool
+
+		err := NewGroup().
+			AddRunner(func() error { return errors.New("task failed") }).Key("a").
+			WithPreFunc(func(ctx context.Context, shared any) error {
+				preRan = true
+				return nil
+			}).
+			WithAfterFunc(func(ctx context.Context, shared any, err error) error {
+				afterRan = true
+				return err
+			}).
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, preRan)
+		assert.True(t, afterRan)
+		assert.True(t, rollbackRan)
+	})
+
+	t.Run("rollback after pre function failure", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+		var rollbackRan bool
+		var executed bool
+
+		err := NewGroup().
+			AddRunner(func() error { executed = true; return nil }).Key("a").
+			WithPreFunc(func(ctx context.Context, shared any) error {
+				return errors.New("pre failed")
+			}).
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackRan = true
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.False(t, executed)
+		assert.True(t, rollbackRan) // rollback runs even if pre fails
+	})
+
+	t.Run("rollback with weak dependency", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := context.Background(), new(exampleCtx)
+		var rollbackFail, rollbackX bool
+
+		alwaysFail := func() error {
+			time.Sleep(500 * time.Millisecond)
+			return errors.New("always fails")
+		}
+
+		err := NewGroup().
+			AddRunner(alwaysFail).Key("fail").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				rollbackFail = true
+				return nil
+			}).
+			AddRunner(c.X).Key("x").WeakDep("fail").
+			WithRollback(func(ctx context.Context, shared any, err error) error {
+				if err != nil {
+					rollbackX = true // rollback only when x fails
+				}
+				return nil
+			}).
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.True(t, rollbackFail) // fail node should rollback
+		assert.False(t, rollbackX)   // x succeeded, no rollback
 	})
 }

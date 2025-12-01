@@ -25,13 +25,15 @@ type node struct {
 // node level interceptor
 type NodePreFunc func(ctx context.Context, shared any) error
 type NodeAfterFunc func(ctx context.Context, shared any, err error) error
+type NodeRollbackFunc func(ctx context.Context, shared any, err error) error
 
 type nodeSpec struct {
-	ff      bool // fast-fail flag
-	retry   int
-	pre     func(ctx context.Context, shared any) error
-	after   func(ctx context.Context, shared any, err error) error
-	timeout time.Duration
+	ff       bool // fast-fail flag
+	retry    int
+	pre      NodePreFunc
+	after    NodeAfterFunc
+	rollback NodeRollbackFunc
+	timeout  time.Duration
 }
 
 func (n *node) Key(key any) *node {
@@ -94,6 +96,11 @@ func (n *node) WithPreFunc(f NodePreFunc) *node {
 
 func (n *node) WithAfterFunc(f NodeAfterFunc) *node {
 	n.after = f
+	return n
+}
+
+func (n *node) WithRollback(f NodeRollbackFunc) *node {
+	n.rollback = f
 	return n
 }
 

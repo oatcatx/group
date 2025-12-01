@@ -103,16 +103,23 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 		}
 	}
 	var groupErrs = make([]error, len(g.nodes))
+	var tracker *rollbackTracker
 	var xshared any
 	if len(shared) == 1 {
 		xshared = shared[0]
 	} else if len(shared) > 1 {
 		xshared = shared
 	}
-	g.exec(ctx, eg, groupErrs, xshared)
+	g.exec(ctx, eg, groupErrs, &tracker, xshared)
 	defer func() {
 		if err == nil {
 			err = leafError(g.nodes, groupErrs)
+		}
+		// group rollback
+		if err != nil && tracker != nil {
+			if rbErr := tracker.rollback(ctx, xshared, groupErrs); rbErr != nil {
+				err = errors.Join(err, rbErr)
+			}
 		}
 		// group post-execution interceptor
 		if g.After != nil {
@@ -142,10 +149,17 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 	return eg.Wait()
 }
 
-func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error, shared any) {
+func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error, tracker **rollbackTracker, shared any) {
 	var indegree = make([]uint32, len(g.nodes))
+	var rbCnt int
 	for i, node := range g.nodes {
 		indegree[i] = uint32(len(node.deps))
+		if node.rollback != nil {
+			rbCnt++
+		}
+	}
+	if rbCnt > 0 {
+		*tracker = &rollbackTracker{order: make([]*node, rbCnt)}
 	}
 	store, _ := ctx.Value(fetchKey{}).(Storer)
 	var run func(node *node)
@@ -158,6 +172,17 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 			}
 
 			defer func() {
+				// track for rollback
+				if *tracker != nil && n.rollback != nil {
+					(*tracker).track(n)
+				}
+
+				// node post-execution interceptor
+				if n.after != nil {
+					err = n.after(ctx, shared, err)
+				}
+
+				// wrap error and record
 				ok := err == nil
 				if !ok {
 					groupErrs[n.idx], err = wrapError(n, err, groupErrs), nil // clear non-fast-fail error
@@ -169,18 +194,17 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 
 				// notify
 				if n.key != nil {
-					notify := func(idx int) {
-						if atomic.AddUint32(&indegree[idx], ^uint32(0)) == 0 {
-							run(g.nodes[idx])
-						}
-					}
 					if ok {
 						for _, toIdx := range n.to {
-							notify(toIdx)
+							if atomic.AddUint32(&indegree[toIdx], ^uint32(0)) == 0 {
+								run(g.nodes[toIdx])
+							}
 						}
 					} else { // if non-fast-fail error occurs, only notify nodes that weakly depend on it
 						for _, toIdx := range n.weakTo {
-							notify(toIdx)
+							if atomic.AddUint32(&indegree[toIdx], ^uint32(0)) == 0 {
+								run(g.nodes[toIdx])
+							}
 						}
 					}
 				}
@@ -215,22 +239,17 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 					return
 				}
 			}
-			// wrap pre/after interceptors
-			if n.pre != nil || n.after != nil {
-				innerF := execF
+			// wrap pre interceptors
+			if n.pre != nil {
+				preF := execF
 				execF = func(ctx context.Context, shared any) error {
-					// pre-execution interceptor
+					// node pre-execution interceptor
 					if n.pre != nil {
 						if err := n.pre(ctx, shared); err != nil {
 							return err
 						}
 					}
-					err := innerF(ctx, shared)
-					// post-execution interceptor
-					if n.after != nil {
-						return n.after(ctx, shared, err)
-					}
-					return err
+					return preF(ctx, shared)
 				}
 			}
 
