@@ -60,7 +60,7 @@ func TestGroupGoNodeTimeout(t *testing.T) {
 
 		err := NewGroup().
 			AddRunner(c.A).Key("a").
-			AddRunner(c.C).Key("c").Dep("a").Timeout(1 * time.Second). // C takes 2s but timeout at 1s
+			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
 			AddRunner(c.D).Key("d").Dep("c").
 			Go(ctx)
 
@@ -76,8 +76,8 @@ func TestGroupGoNodeTimeout(t *testing.T) {
 
 		err := NewGroup().
 			AddRunner(c.A).Key("a").
-			AddRunner(c.C).Key("c").Dep("a").Timeout(1 * time.Second). // C takes 2s but timeout at 1s
-			AddRunner(c.X).Key("x").WeakDep("c").                      // X should execute despite C timeout
+			AddRunner(c.C).Key("c").Dep("a").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
+			AddRunner(c.X).Key("x").WeakDep("c").                          // X should execute despite C timeout
 			Go(ctx)
 
 		assert.NotNil(t, err)
@@ -91,8 +91,8 @@ func TestGroupGoNodeTimeout(t *testing.T) {
 		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
 
 		err := NewGroup().
-			AddRunner(c.B).Key("b").Timeout(500 * time.Millisecond). // B takes 1s but timeout at 500ms
-			AddRunner(c.C).Key("c").Timeout(1 * time.Second).        // C takes 2s but timeout at 1s
+			AddRunner(c.B).Key("b").WithTimeout(500 * time.Millisecond). // B takes 1s but timeout at 500ms
+			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second).        // C takes 2s but timeout at 1s
 			Go(ctx)
 
 		assert.NotNil(t, err)
@@ -120,7 +120,7 @@ func TestGroupGoNodeRetry(t *testing.T) {
 		}
 
 		err := NewGroup().
-			AddRunner(failTwice).Key("retry").Retry(2).
+			AddRunner(failTwice).Key("retry").WithRetry(2).
 			Go(ctx)
 
 		assert.Nil(t, err)
@@ -138,7 +138,7 @@ func TestGroupGoNodeRetry(t *testing.T) {
 		}
 
 		err := NewGroup().
-			AddRunner(alwaysFail).Key("retry").Retry(2).
+			AddRunner(alwaysFail).Key("retry").WithRetry(2).
 			Go(ctx)
 
 		assert.NotNil(t, err)
@@ -161,7 +161,7 @@ func TestGroupGoNodeRetry(t *testing.T) {
 
 		err := NewGroup().
 			AddRunner(c.A).Key("a").
-			AddRunner(failOnce).Key("b").Dep("a").Retry(1).
+			AddRunner(failOnce).Key("b").Dep("a").WithRetry(1).
 			AddRunner(c.D).Key("d").Dep("b").
 			Go(ctx)
 
@@ -188,7 +188,7 @@ func TestGroupGoNodeRetry(t *testing.T) {
 
 		err := NewGroup().
 			AddRunner(c.A).Key("a").
-			AddRunner(retryFunc).Key("c").Dep("a").Retry(3).
+			AddRunner(retryFunc).Key("c").Dep("a").WithRetry(3).
 			AddRunner(c.D).Key("d").Dep("c").
 			Go(ctx)
 
@@ -208,7 +208,7 @@ func TestGroupGoNodeRetry(t *testing.T) {
 		}
 
 		err := NewGroup().
-			AddRunner(alwaysFail).Key("fail").Retry(2).
+			AddRunner(alwaysFail).Key("fail").WithRetry(2).
 			AddRunner(c.X).Key("x").WeakDep("fail").
 			Go(ctx)
 
@@ -240,8 +240,8 @@ func TestGroupGoNodeRetry(t *testing.T) {
 		}
 
 		err := NewGroup().
-			AddRunner(retryB).Key("b").Retry(1).
-			AddRunner(retryC).Key("c").Retry(3).
+			AddRunner(retryB).Key("b").WithRetry(1).
+			AddRunner(retryC).Key("c").WithRetry(3).
 			Go(ctx)
 
 		assert.Nil(t, err)
@@ -396,7 +396,7 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 		var mu sync.Mutex
 
 		err := NewGroup().
-			AddRunner(c.C).Key("c").Timeout(1 * time.Second). // C takes 2s but timeout at 1s
+			AddRunner(c.C).Key("c").WithTimeout(1 * time.Second). // C takes 2s but timeout at 1s
 			WithAfterFunc(func(ctx context.Context, shared any, err error) error {
 				mu.Lock()
 				afterRan = true
@@ -433,7 +433,7 @@ func TestGroupGoNodeInterceptor(t *testing.T) {
 		}
 
 		err := NewGroup().
-			AddRunner(failTwice).Key("retry").Retry(2).
+			AddRunner(failTwice).Key("retry").WithRetry(2).
 			WithPreFunc(func(ctx context.Context, shared any) error {
 				preCount++
 				return nil

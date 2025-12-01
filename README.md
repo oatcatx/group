@@ -17,8 +17,6 @@
 
 `(Group).Add...`  **`Group.Go`**  `(Group).Node`  `(Group).Verify`
 
-`Node.Key`  `Node.Dep`  `Node.WeakDep`  `Node.FF`  `Node.Verify`
-
 ## Options
 Get options by `group.Opts(group.With...)`
 
@@ -27,6 +25,8 @@ or by `group.Options{...}`
 Available options:
 - `WithPrefix(string)` - Set group name for logging
 - `WithLimit(int)` - Set concurrency limit
+- `WithPreFunc(PreFunc)` - Set group pre-execution interceptor
+- `WithAfterFunc(AfterFunc)` - Set group post-execution interceptor
 - `WithTimeout(time.Duration)` - Set group timeout
 - `WithLog` - Enable logging
 - `WithLogger(*slog.Logger)` - Use custom logger
@@ -43,6 +43,8 @@ Available options:
 - **💥 Fast-Fail Control**: Configure tasks to halt group execution on error
 - **📦 Built-in Store**: Share data between dependent tasks using context-based storage
 - **⏱️ Timeout Control**: Set timeouts at the group level
+- **🔄 Retry Mechanism**: Configure automatic retry for individual nodes
+- **🎣 Interceptors**: Pre and post-execution hooks at both group and node level
 - **📊 Monitoring & Logging**: Optional execution monitoring and logging
 
 #### Error Propagation
@@ -64,6 +66,17 @@ Context-aware tasks will be able to communicate data through `Store` and `Fetch`
 
 ***🚢 Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
 shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
+
+#### [Node Configuration]
+
+- **`Key(any)`** - Assign unique identifier
+- **`Dep(...any)`** - Add strong dependencies (blocks on upstream errors)
+- **`WeakDep(...any)`** - Add weak dependencies (continues on upstream errors)
+- **`FastFail()`** - Halt entire group on node error
+- **`WithRetry(int)`** - Set retry attempts on failure
+- **`WithPreFunc(NodePreFunc)`** - Set node pre-execution interceptor
+- **`WithAfterFunc(NodeAfterFunc)`** - Set node post-execution interceptor
+- **`WithTimeout(time.Duration)`** - Set node-specific timeout
 
 #### [More...]
 Refer to the example package in this repo

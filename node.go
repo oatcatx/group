@@ -29,9 +29,9 @@ type NodeAfterFunc func(ctx context.Context, shared any, err error) error
 type nodeSpec struct {
 	ff      bool // fast-fail flag
 	retry   int
-	timeout time.Duration
 	pre     func(ctx context.Context, shared any) error
 	after   func(ctx context.Context, shared any, err error) error
+	timeout time.Duration
 }
 
 func (n *node) Key(key any) *node {
@@ -79,19 +79,11 @@ func (n *node) FastFail() *node {
 	return n
 }
 
-func (n *node) Retry(times int) *node {
+func (n *node) WithRetry(times int) *node {
 	if times < 0 {
 		panic("retry times must be non-negative")
 	}
 	n.retry = times
-	return n
-}
-
-func (n *node) Timeout(t time.Duration) *node {
-	if t <= 0 {
-		panic("timeout must be positive")
-	}
-	n.timeout = t
 	return n
 }
 
@@ -102,6 +94,14 @@ func (n *node) WithPreFunc(f NodePreFunc) *node {
 
 func (n *node) WithAfterFunc(f NodeAfterFunc) *node {
 	n.after = f
+	return n
+}
+
+func (n *node) WithTimeout(t time.Duration) *node {
+	if t <= 0 {
+		panic("timeout must be positive")
+	}
+	n.timeout = t
 	return n
 }
 
