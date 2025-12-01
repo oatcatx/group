@@ -110,7 +110,7 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 	} else if len(shared) > 1 {
 		xshared = shared
 	}
-	g.exec(ctx, eg, groupErrs, &tracker, xshared)
+	g.exec(ctx, eg, xshared, groupErrs, &tracker)
 	defer func() {
 		if err == nil {
 			err = leafError(g.nodes, groupErrs)
@@ -149,7 +149,7 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 	return eg.Wait()
 }
 
-func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error, tracker **rollbackTracker, shared any) {
+func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupErrs []error, tracker **rollbackTracker) {
 	var indegree = make([]uint32, len(g.nodes))
 	var rbCnt int
 	for i, node := range g.nodes {
