@@ -239,8 +239,8 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 					return
 				}
 			}
-			// wrap pre interceptors
 			if n.pre != nil {
+				// wrap pre interceptor
 				preF := execF
 				execF = func(ctx context.Context, shared any) error {
 					// node pre-execution interceptor
