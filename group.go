@@ -192,17 +192,18 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 				}(time.Now())
 			}
 
+			execF := n.f
 			if n.key != nil && store != nil {
 				// wrap store func
-				storeF := n.f
-				n.f = func(ctx context.Context, shared any) error {
+				storeF := execF
+				execF = func(ctx context.Context, shared any) error {
 					return storeF(context.WithValue(ctx, storeKey{}, storeFunc(func(v any) { store.Store(n.key, v) })), shared)
 				}
 			}
 			if n.retry > 0 {
 				// wrap retry func
-				retryF := n.f
-				n.f = func(ctx context.Context, shared any) (err error) {
+				retryF := execF
+				execF = func(ctx context.Context, shared any) (err error) {
 					for i := range n.retry + 1 {
 						if err = retryF(ctx, shared); err == nil {
 							break
@@ -216,8 +217,8 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 			}
 			// wrap pre/after interceptors
 			if n.pre != nil || n.after != nil {
-				innerF := n.f
-				n.f = func(ctx context.Context, shared any) error {
+				innerF := execF
+				execF = func(ctx context.Context, shared any) error {
 					// pre-execution interceptor
 					if n.pre != nil {
 						if err := n.pre(ctx, shared); err != nil {
@@ -240,7 +241,7 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 
 				done := make(chan error, 1)
 				go func() {
-					done <- SafeRunNode(ctx, n.f, shared)
+					done <- SafeRunNode(ctx, execF, shared)
 				}()
 				select {
 				case <-ctx.Done():
@@ -255,7 +256,7 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, groupErrs []error,
 					return
 				}
 			}
-			return SafeRunNode(ctx, n.f, shared)
+			return SafeRunNode(ctx, execF, shared)
 		})
 	}
 
