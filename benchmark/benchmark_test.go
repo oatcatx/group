@@ -187,14 +187,13 @@ func loopStdErrGroupDep(b *testing.B, c *benchmarkCtx) {
 	}
 }
 
-type (
-	A struct{}
-	B struct{}
-	C struct{}
-	D struct{}
-)
-
 func loopGroup(b *testing.B, c *benchmarkCtx) {
+	type (
+		A struct{}
+		B struct{}
+		C struct{}
+		D struct{}
+	)
 	for b.Loop() {
 		_ = NewGroup().
 			AddRunner(c.A).Key(A{}).
