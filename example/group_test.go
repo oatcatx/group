@@ -200,7 +200,7 @@ func TestGroupGoCtxCancel(t *testing.T) {
 		t.Parallel()
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
-			// ctx timeout while b & c are running
+			// ctx timeout while C is running
 			time.Sleep(3 * time.Second)
 			cancel()
 		}()
@@ -352,5 +352,3 @@ func TestGroupGoInterceptor(t *testing.T) {
 		assert.Contains(t, err.Error(), "timeout")
 	})
 }
-
-
