@@ -167,7 +167,7 @@ func BenchmarkGroup(b *testing.B) {
 	})
 
 	b.Run("Group", func(b *testing.B) {
-		loopGroupGo(b, new(benchmarkCtx))
+		loopGroup(b, new(benchmarkCtx))
 	})
 	fmt.Println()
 }
@@ -194,7 +194,7 @@ type (
 	D struct{}
 )
 
-func loopGroupGo(b *testing.B, c *benchmarkCtx) {
+func loopGroup(b *testing.B, c *benchmarkCtx) {
 	for b.Loop() {
 		_ = NewGroup().
 			AddRunner(c.A).Key(A{}).
