@@ -48,7 +48,7 @@ Available options:
 - **⏱️ Timeout Control**: Set timeouts at the group level
 - **📊 Monitoring & Logging**: Optional execution monitoring and logging
 
-#### Error Propagation
+#### 🍃 Error Propagation
 Within a group, errors propagate according to dependency order, eventually returning only **leaf errors** that have already aggregated parent errors.
 If multiple leaf errors exist, they are aggregated using `errors.Join` (when a fast-fail error occurs, only the aggregated error from the fast-fail node is returned).
 
