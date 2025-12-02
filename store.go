@@ -10,7 +10,7 @@ func WithStore(ctx context.Context, store Storer) context.Context {
 }
 
 type Storer interface {
-	Store(key any, value any)
+	Store(key, value any)
 	Load(key any) (value any, ok bool)
 }
 
