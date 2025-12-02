@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	"sync/atomic"
 )
 
 // context with store
@@ -45,4 +46,35 @@ func Fetch[T any](ctx context.Context, key any) (T, bool) {
 	}
 	v, ok := ctx.Value(key).(T)
 	return v, ok
+}
+
+type mapStore struct {
+	ptr atomic.Pointer[map[any]any]
+}
+
+// copy-on-write map store
+// [ideal for read-heavy scenarios]
+func NewMapStore() *mapStore {
+	s := &mapStore{}
+	s.ptr.Store(&map[any]any{})
+	return s
+}
+
+func (s *mapStore) Load(key any) (any, bool) {
+	v, ok := (*s.ptr.Load())[key]
+	return v, ok
+}
+
+func (s *mapStore) Store(key, value any) {
+	for {
+		oldMapPtr := s.ptr.Load()
+		newMap := make(map[any]any, len(*oldMapPtr)+1)
+		for k, v := range *oldMapPtr {
+			newMap[k] = v
+		}
+		newMap[key] = value
+		if s.ptr.CompareAndSwap(oldMapPtr, &newMap) {
+			return
+		}
+	}
 }
