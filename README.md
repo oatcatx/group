@@ -98,54 +98,56 @@ BenchmarkGo
 
 BenchmarkGo/TinyWorkload
 BenchmarkGo/TinyWorkload/StdGoroutine
-BenchmarkGo/TinyWorkload/StdGoroutine-12         	   85225	     14676 ns/op	     258 B/op	      11 allocs/op
+BenchmarkGo/TinyWorkload/StdGoroutine-12         	   78626	     15192 ns/op	     259 B/op	      11 allocs/op
 BenchmarkGo/TinyWorkload/StdErrGroup
-BenchmarkGo/TinyWorkload/StdErrGroup-12          	   56398	     20374 ns/op	     400 B/op	      13 allocs/op
+BenchmarkGo/TinyWorkload/StdErrGroup-12          	   50954	     26485 ns/op	     400 B/op	      13 allocs/op
 BenchmarkGo/TinyWorkload/Go
-BenchmarkGo/TinyWorkload/Go-12                   	   43058	     27641 ns/op	    1105 B/op	      25 allocs/op
+BenchmarkGo/TinyWorkload/Go-12                   	   40836	     29868 ns/op	    1105 B/op	      25 allocs/op
 BenchmarkGo/TinyWorkload/GoWithOpts
-BenchmarkGo/TinyWorkload/GoWithOpts-12           	   20499	     58025 ns/op	    5015 B/op	      91 allocs/op
+BenchmarkGo/TinyWorkload/GoWithOpts-12           	   20181	     62942 ns/op	    5218 B/op	     102 allocs/op
 
 BenchmarkGo/SmallWorkload
 BenchmarkGo/SmallWorkload/StdGoroutine
-BenchmarkGo/SmallWorkload/StdGoroutine-12        	     991	   1271535 ns/op	   12149 B/op	     201 allocs/op
+BenchmarkGo/SmallWorkload/StdGoroutine-12        	     832	   1253898 ns/op	   12129 B/op	     201 allocs/op
 BenchmarkGo/SmallWorkload/StdErrGroup
-BenchmarkGo/SmallWorkload/StdErrGroup-12         	     920	   1238819 ns/op	   12175 B/op	     203 allocs/op
+BenchmarkGo/SmallWorkload/StdErrGroup-12         	     956	   1277130 ns/op	   12197 B/op	     203 allocs/op
 BenchmarkGo/SmallWorkload/Go
-BenchmarkGo/SmallWorkload/Go-12                  	     880	   1298515 ns/op	   17186 B/op	     305 allocs/op
+BenchmarkGo/SmallWorkload/Go-12                  	     922	   1318295 ns/op	   17186 B/op	     305 allocs/op
 BenchmarkGo/SmallWorkload/GoWithOpts
-BenchmarkGo/SmallWorkload/GoWithOpts-12          	     876	   1405319 ns/op	   47737 B/op	     845 allocs/op
+BenchmarkGo/SmallWorkload/GoWithOpts-12          	     849	   1446455 ns/op	   49307 B/op	     946 allocs/op
 
 BenchmarkGo/MediumWorkload
 BenchmarkGo/MediumWorkload/StdGoroutine
-BenchmarkGo/MediumWorkload/StdGoroutine-12       	     181	   6559549 ns/op	  122747 B/op	    2006 allocs/op
+BenchmarkGo/MediumWorkload/StdGoroutine-12       	     184	   6491799 ns/op	  122766 B/op	    2005 allocs/op
 BenchmarkGo/MediumWorkload/StdErrGroup
-BenchmarkGo/MediumWorkload/StdErrGroup-12        	     183	   6899276 ns/op	  120242 B/op	    2003 allocs/op
+BenchmarkGo/MediumWorkload/StdErrGroup-12        	     182	   6548971 ns/op	  120220 B/op	    2003 allocs/op
 BenchmarkGo/MediumWorkload/Go
-BenchmarkGo/MediumWorkload/Go-12                 	     181	   6719674 ns/op	  168533 B/op	    3005 allocs/op
+BenchmarkGo/MediumWorkload/Go-12                 	     163	   7078103 ns/op	  168493 B/op	    3005 allocs/op
 BenchmarkGo/MediumWorkload/GoWithOpts
-BenchmarkGo/MediumWorkload/GoWithOpts-12         	     165	   7242332 ns/op	  464363 B/op	    8276 allocs/op
+BenchmarkGo/MediumWorkload/GoWithOpts-12         	     165	   7278053 ns/op	  480847 B/op	    9282 allocs/op
 
 BenchmarkGo/LargeWorkload
 BenchmarkGo/LargeWorkload/StdGoroutine
-BenchmarkGo/LargeWorkload/StdGoroutine-12        	      22	  51806746 ns/op	 1277066 B/op	   20161 allocs/op
+BenchmarkGo/LargeWorkload/StdGoroutine-12               21	  52983192 ns/op	 1290996 B/op	   20188 allocs/op
 BenchmarkGo/LargeWorkload/StdErrGroup
-BenchmarkGo/LargeWorkload/StdErrGroup-12         	      21	  53904347 ns/op	 1213831 B/op	   20037 allocs/op
+BenchmarkGo/LargeWorkload/StdErrGroup-12         	      13	  82499465 ns/op	 1239411 B/op	   20183 allocs/op
 BenchmarkGo/LargeWorkload/Go
-BenchmarkGo/LargeWorkload/Go-12                  	      18	  61684032 ns/op	 1694099 B/op	   30037 allocs/op
+BenchmarkGo/LargeWorkload/Go-12                  	      15	  71173006 ns/op	 1680838 B/op	   30009 allocs/op
 BenchmarkGo/LargeWorkload/GoWithOpts
-BenchmarkGo/LargeWorkload/GoWithOpts-12          	      18	  66239204 ns/op	 4632736 B/op	   82634 allocs/op
+BenchmarkGo/LargeWorkload/GoWithOpts-12          	      14	  73112423 ns/op	 4790445 B/op	   92600 allocs/op
 ```
+
+---
 
 ```
 goos: darwin
 goarch: arm64
 pkg: github.com/oatcatx/group/benchmark
 cpu: Apple M3 Pro
-BenchmarkGroupGo
+BenchmarkGroup
 
-BenchmarkGroupGo/StdErrGroup
-BenchmarkGroupGo/StdErrGroup-12         	   63068	     18095 ns/op	     641 B/op	      17 allocs/op
-BenchmarkGroupGo/GroupGo
-BenchmarkGroupGo/GroupGo-12             	   51577	     23430 ns/op	    2432 B/op	      40 allocs/op
+BenchmarkGroup/StdErrGroup
+BenchmarkGroup/StdErrGroup-12         	   79412	     18070 ns/op	     641 B/op	      17 allocs/op
+BenchmarkGroup/Group
+BenchmarkGroup/Group-12               	   50367	     24134 ns/op	    2680 B/op	      45 allocs/op
 ```

@@ -160,13 +160,13 @@ func (c *benchmarkCtx) D() error {
 	return nil
 }
 
-func BenchmarkGroupGo(b *testing.B) {
+func BenchmarkGroup(b *testing.B) {
 	fmt.Println()
 	b.Run("StdErrGroup", func(b *testing.B) {
 		loopStdErrGroupDep(b, new(benchmarkCtx))
 	})
 
-	b.Run("GroupGo", func(b *testing.B) {
+	b.Run("Group", func(b *testing.B) {
 		loopGroupGo(b, new(benchmarkCtx))
 	})
 	fmt.Println()
