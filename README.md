@@ -37,7 +37,6 @@ Available options:
 ## Group Mode (DAG)
 
 ### Features
-
 - **🔗 Dependency Management**: Define task dependencies with automatic execution ordering
 - **🧩 Weak Dependencies**: Continue execution even when upstream tasks fail
 - **📦 Built-in Store**: Share data between dependent tasks using context-based storage
@@ -55,11 +54,9 @@ If multiple leaf errors exist, they are aggregated using `errors.Join` (when a f
 ### Usage
 
 #### [Basic Workflow]
-
 Create a group using `NewGroup` with optional configurations, then add tasks using `AddRunner`, `AddTask`, or `AddSharedTask`. Each task can be assigned a unique key and specify its dependencies. Finally, execute the group with `Go` method.
 
 #### [Task Types]
-
 ***🚀 Simple Runner*** - Basic function that returns an error. No access to context or shared state.
 
 ***🚁 Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
@@ -69,7 +66,6 @@ Context-aware tasks will be able to communicate data through `Store` and `Fetch`
 shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
 
 #### [Node Configuration]
-
 - **`Key(any)`** - Assign unique identifier
 - **`Dep(...any)`** - Add strong dependencies (blocks on upstream errors)
 - **`WeakDep(...any)`** - Add weak dependencies (continues on upstream errors)
