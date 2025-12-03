@@ -18,19 +18,11 @@ type Storer interface {
 type storeKey struct{}
 type storeFunc func(any)
 
-func Store[V any](ctx context.Context, v V) {
+func Store[V any](ctx context.Context, value V) {
 	if f, _ := ctx.Value(storeKey{}).(storeFunc); f != nil {
-		f(v)
+		f(value)
 	} else {
 		panic("missing store func in context")
-	}
-}
-
-func Put[K, V any](ctx context.Context, k K, v V) {
-	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
-		store.Store(k, v)
-	} else {
-		panic("missing store in context")
 	}
 }
 
@@ -46,6 +38,14 @@ func Fetch[T any](ctx context.Context, key any) (T, bool) {
 	}
 	v, ok := ctx.Value(key).(T)
 	return v, ok
+}
+
+func Put[K, V any](ctx context.Context, key K, value V) {
+	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
+		store.Store(key, value)
+	} else {
+		panic("missing store in context")
+	}
 }
 
 type mapStore struct {
