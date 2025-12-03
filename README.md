@@ -19,8 +19,8 @@
 
 ---
 `WithStore(ctx, store) context.Context`
-`Store(ctx, value)`  `Fetch(ctx, key)`  `Put(ctx, key, value)`
 
+`Store(ctx, value)`  `Fetch(ctx, key)`  `Put(ctx, key, value)`
 
 ## Options
 Get options by `Opts(With...)`
