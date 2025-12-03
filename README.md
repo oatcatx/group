@@ -5,7 +5,7 @@
 *Much less overhead by optional features selected*
 
 ## APIs
-`Go(ctx, opts, fs...), TryGo(ctx, opts, fs...) bool`
+`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`
 
 ---
 
