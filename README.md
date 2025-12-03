@@ -5,22 +5,27 @@
 *Much less overhead by optional features selected*
 
 ## APIs
-`group.Go(), group.TryGo()`
+`Go(ctx, opts, fs...), TryGo(ctx, opts, fs...) bool`
 
 ---
 
-`group.Opts(group.With...)`
+`Opts(With...) *Options`
 
 ---
 
-`group.NewGroup`
+`NewGroup() *Group`
 
-`(Group).Add...`  **`Group.Go`**  `(Group).Node`  `(Group).Verify`
+**`(Group).Go(ctx) error`**  `(Group).Add... *node`  `(Group).Node(key) *node`  `(Group).Verify(panicking) *node`
+
+---
+`WithStore(ctx, store) context.Context`
+`Store(ctx, value)`  `Fetch(ctx, key)`  `Put(ctx, key, value)`
+
 
 ## Options
-Get options by `group.Opts(group.With...)`
+Get options by `Opts(With...)`
 
-or by `group.Options{...}`
+or by `Options{...}`
 
 Available options:
 - `WithPrefix(string)` - Set group name for logging
@@ -60,7 +65,7 @@ Create a group using `NewGroup` with optional configurations, then add tasks usi
 ***🚀 Simple Runner*** - Basic function that returns an error. No access to context or shared state.
 
 ***🚁 Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
-Context-aware tasks will be able to communicate data through `Store` and `Fetch`.
+Context-aware tasks will be able to communicate data through `Store` and `Fetch`. Additionally, you can directly insert key-value pairs into the context by using `Put`.
 
 ***🚢 Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
 shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
