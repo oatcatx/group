@@ -821,3 +821,47 @@ func TestGroupGoNodeRollback(t *testing.T) {
 		assert.False(t, rollbackX)   // x succeeded, no rollback
 	})
 }
+
+func TestGroupGoAutoNode(t *testing.T) {
+	t.Parallel()
+
+	t.Run("basic auto node execution", func(t *testing.T) {
+		t.Parallel()
+		ctx, c := WithStore(context.Background(), NewMapStore()), new(exampleCtx)
+
+		err := NewGroup().
+			AddRunner(c.A).Key("a").
+			AddAutoRunner(func() (any, error) { return "auto-result", nil }).Key("auto").Dep("a").
+			Go(ctx)
+
+		assert.Nil(t, err)
+		v, ok := Fetch[string](ctx, "auto")
+		assert.True(t, ok)
+		assert.Equal(t, "auto-result", v)
+	})
+
+	t.Run("auto node with error", func(t *testing.T) {
+		t.Parallel()
+		ctx := WithStore(context.Background(), NewMapStore())
+
+		err := NewGroup().
+			AddAutoRunner(func() (any, error) { return nil, errors.New("auto node failed") }).Key("auto").
+			Go(ctx)
+
+		assert.NotNil(t, err)
+		assert.Equal(t, "auto node failed", err.Error())
+		_, ok := Fetch[string](ctx, "auto")
+		assert.False(t, ok)
+	})
+
+	t.Run("panic if missing store func", func(t *testing.T) {
+		t.Parallel()
+		ctx := context.Background()
+
+		err := NewGroup().
+			AddAutoRunner(func() (any, error) { return "result", nil }).Key("auto").
+			Go(ctx)
+
+		assert.Contains(t, err.Error(), "missing store func in context")
+	})
+}

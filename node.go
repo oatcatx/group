@@ -6,11 +6,20 @@ import (
 	"time"
 )
 
-type Node interface {
+type baseNode interface {
 	Key() any
 	Dep() []any
 	WeakDep() []any
+}
+
+type Node interface {
+	baseNode
 	Exec(ctx context.Context, shared any) error
+}
+
+type AutoNode interface {
+	baseNode
+	Exec(ctx context.Context, shared any) (any, error)
 }
 
 type node struct {

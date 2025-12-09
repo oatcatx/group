@@ -2,26 +2,32 @@ package group
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"runtime"
 )
 
 const bufSize int = 64 << 10
 
-func RecoverContext(ctx context.Context) {
-	if x := recover(); x != nil {
+func RecoverContext(ctx context.Context, err *error) {
+	if r := recover(); r != nil {
 		buf := make([]byte, bufSize)
 		buf = buf[:runtime.Stack(buf, false)]
-		slog.ErrorContext(ctx, "runtime panic: %v\n%s", x, string(buf))
+		slog.ErrorContext(ctx, "panic recovered", slog.Any("panic", r), slog.String("stack", string(buf)))
+		if e, ok := r.(error); ok {
+			*err = fmt.Errorf("panic: %w", e)
+		} else {
+			*err = fmt.Errorf("panic: %v", r)
+		}
 	}
 }
 
-func SafeRun(ctx context.Context, f func() error) error {
-	defer RecoverContext(ctx)
+func SafeRun(ctx context.Context, f func() error) (err error) {
+	defer RecoverContext(ctx, &err)
 	return f()
 }
 
-func SafeRunNode(ctx context.Context, f func(context.Context, any) error, shared any) error {
-	defer RecoverContext(ctx)
+func SafeRunNode(ctx context.Context, f func(context.Context, any) error, shared any) (err error) {
+	defer RecoverContext(ctx, &err)
 	return f(ctx, shared)
 }

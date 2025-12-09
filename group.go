@@ -59,6 +59,61 @@ func (g *Group) AddNode(n Node) *node {
 	return node
 }
 
+// [Auto...] returns a value and automatically stores it in the context store
+// note: it might panic if there's no store func in context
+func (g *Group) AddAutoRunner(runner func() (any, error)) *node {
+	n := &node{f: func(ctx context.Context, _ any) error {
+		v, err := runner()
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
+func (g *Group) AddAutoTask(task func(context.Context) (any, error)) *node {
+	n := &node{f: func(ctx context.Context, _ any) error {
+		v, err := task(ctx)
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
+func (g *Group) AddAutoSharedTask(task func(context.Context, any) (any, error)) *node {
+	n := &node{f: func(ctx context.Context, shared any) error {
+		v, err := task(ctx, shared)
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
+func (g *Group) AddAutoNode(n AutoNode) *node {
+	node := &node{f: func(ctx context.Context, shared any) error {
+		v, err := n.Exec(ctx, shared)
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	node.Key(n.Key()).Dep(n.Dep()...).WeakDep(n.WeakDep()...)
+	g.nodes = append(g.nodes, node)
+	g.x++
+	return node
+}
+
 func (g *Group) Node(key any) *node {
 	if idx, ok := g.idxMap[key]; ok {
 		return g.nodes[idx]
