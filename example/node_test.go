@@ -862,6 +862,7 @@ func TestGroupGoAutoNode(t *testing.T) {
 			AddAutoRunner(func() (any, error) { return "result", nil }).Key("auto").
 			Go(ctx)
 
+		assert.True(t, errors.Is(err, ErrPanic))
 		assert.Contains(t, err.Error(), "missing store func in context")
 	})
 }
