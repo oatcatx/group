@@ -196,10 +196,10 @@ func buildNodeLabel(n *node) string {
 	var name = nodeName(n)
 	var details []string
 	if n.ff {
-		details = append(details, "⚡ fast-fail")
+		details = append(details, "⚡︎ fast-fail")
 	}
 	if n.retry > 0 {
-		details = append(details, fmt.Sprintf("🔄 retry=%d", n.retry))
+		details = append(details, fmt.Sprintf("↻ retry=%d", n.retry))
 	}
 	if n.pre != nil {
 		details = append(details, "▶ pre")
