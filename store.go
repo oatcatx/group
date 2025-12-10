@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 )
 
-// context with store
+// WithStore returns a new context with the provided store (storer-context)
 func WithStore(ctx context.Context, store Storer) context.Context {
 	return context.WithValue(ctx, fetchKey{}, store)
 }
