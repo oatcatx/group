@@ -863,6 +863,6 @@ func TestGroupGoAutoNode(t *testing.T) {
 			Go(ctx)
 
 		assert.True(t, errors.Is(err, ErrPanic))
-		assert.Contains(t, err.Error(), "missing store func in context")
+		assert.Contains(t, err.Error(), "Store called with non-storer context")
 	})
 }

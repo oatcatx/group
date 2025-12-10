@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	"maps"
 	"sync/atomic"
 )
 
@@ -22,7 +23,7 @@ func Store[V any](ctx context.Context, value V) {
 	if f, _ := ctx.Value(storeKey{}).(storeFunc); f != nil {
 		f(value)
 	} else {
-		panic("missing store func in context")
+		panic("Store called with non-storer context")
 	}
 }
 
@@ -44,7 +45,7 @@ func Put[K, V any](ctx context.Context, key K, value V) {
 	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
 		store.Store(key, value)
 	} else {
-		panic("missing store in context")
+		panic("Put called with non-storer context")
 	}
 }
 
@@ -69,9 +70,7 @@ func (s *mapStore) Store(key, value any) {
 	for {
 		oldMapPtr := s.ptr.Load()
 		newMap := make(map[any]any, len(*oldMapPtr)+1)
-		for k, v := range *oldMapPtr {
-			newMap[k] = v
-		}
+		maps.Copy(newMap, *oldMapPtr)
 		newMap[key] = value
 		if s.ptr.CompareAndSwap(oldMapPtr, &newMap) {
 			return
