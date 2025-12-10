@@ -29,8 +29,7 @@ func RecoverContext(ctx context.Context, err *error) {
 			panicAttrs = append(panicAttrs, slog.GroupAttrs("location", locAttrs...))
 		}
 		buf := make([]byte, bufSize)
-		buf = buf[:runtime.Stack(buf, false)]
-		slog.LogAttrs(ctx, slog.LevelError, ErrPanic.Error(), slog.GroupAttrs("panic", panicAttrs...), slog.String("stack", string(buf)))
+		slog.LogAttrs(ctx, slog.LevelError, ErrPanic.Error(), slog.GroupAttrs("panic", panicAttrs...), slog.String("stack", string(buf[:runtime.Stack(buf, false)])))
 
 		var panicErr error
 		if e, ok := r.(error); ok {
