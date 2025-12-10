@@ -65,7 +65,7 @@ func TestGraphRendering(t *testing.T) {
 			AddRunner(func() error { return nil }).Key("b").Dep("a").
 			AddRunner(func() error { return nil }).Key("c").Dep("a").Group
 
-		dot, err := g.DOT(context.Background())
+		dot, err := g.DOT(context.Background(), nil)
 		assert.Nil(t, err)
 		assert.Contains(t, dot, "a -> b")
 		assert.Contains(t, dot, "a -> c")

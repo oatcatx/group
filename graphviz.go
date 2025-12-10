@@ -144,8 +144,10 @@ func (g *Group) RenderGraphToFile(ctx context.Context, opts *GraphOptions, filen
 }
 
 // dot format graph
-func (g *Group) DOT(ctx context.Context) (string, error) {
-	opts := DefaultGraphOptions()
+func (g *Group) DOT(ctx context.Context, opts *GraphOptions) (string, error) {
+	if opts == nil {
+		opts = DefaultGraphOptions()
+	}
 	opts.Format = graphviz.XDOT
 	var buf bytes.Buffer
 	if err := g.RenderGraph(ctx, opts, &buf); err != nil {
@@ -156,7 +158,7 @@ func (g *Group) DOT(ctx context.Context) (string, error) {
 
 // dot graphviz url
 func (g *Group) GraphUrl(ctx context.Context) (string, error) {
-	dot, err := g.DOT(ctx)
+	dot, err := g.DOT(ctx, nil)
 	if err != nil {
 		return "", err
 	}
