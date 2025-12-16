@@ -93,7 +93,9 @@ Refer to the example package in this repo
 Verify checks for cycles in the dependency graph by using `group.Verify()` or `Node.Verify()`
 
 ### Graphviz
-Visualize your dependency graph by using `(Group).[RenderGraph/RenderGraphImage/RenderGraphToFile/DOT/GraphURL]`
+Visualize your dependency graph by using
+
+`(Group).[RenderGraph/RenderGraphImage/RenderGraphToFile/DOT/GraphURL]`
 
 ---
 
