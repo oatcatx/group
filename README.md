@@ -5,7 +5,8 @@
 *Much less overhead by optional features selected*
 
 ## APIs
-`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`  `GoCtx(ctx, opts, fs...)`  `TryGoCtx(ctx, opts, fs...) bool`
+`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`
+`GoCtx(ctx, opts, fs...)`  `TryGoCtx(ctx, opts, fs...) bool`
 
 ---
 
@@ -15,7 +16,8 @@
 
 `NewGroup() *Group`
 
-**`(Group).Go(ctx) error`**  `(Group).Add... *node`  `(Group).Node(key) *node`  `(Group).Verify(panicking) *node`
+**`(Group).Go(ctx) error`**
+`(Group).Add... *node`  `(Group).Node(key) *node`  `(Group).Verify(panicking) *node`
 
 ---
 `WithStore(ctx, store) context.Context`
