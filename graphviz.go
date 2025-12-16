@@ -157,7 +157,7 @@ func (g *Group) DOT(ctx context.Context, opts *GraphOptions) (string, error) {
 }
 
 // dot graphviz url
-func (g *Group) GraphUrl(ctx context.Context, opts *GraphOptions) (string, error) {
+func (g *Group) GraphURL(ctx context.Context, opts *GraphOptions) (string, error) {
 	dot, err := g.DOT(ctx, opts)
 	if err != nil {
 		return "", err

@@ -200,7 +200,7 @@ func TestGroupGraphWithAllFeatures(t *testing.T) {
 	assert.NoError(t, openImage(img))
 
 	// dot graphviz url
-	url, err := g.GraphUrl(context.Background(), nil)
+	url, err := g.GraphURL(context.Background(), nil)
 	assert.Nil(t, err)
 	assert.NoError(t, os_exec.Command("open", url).Start())
 }
