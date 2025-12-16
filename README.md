@@ -5,7 +5,7 @@
 *Much less overhead by optional features selected*
 
 ## APIs
-`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`
+`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`  `GoCtx(ctx, opts, fs...)`  `TryGoCtx(ctx, opts, fs...) bool`
 
 ---
 
@@ -51,6 +51,7 @@ Available options:
 - **🔙 Rollback Mechanism**: Define compensation logic to revert changes when tasks fail
 - **⏱️ Timeout Control**: Set timeouts at the group level
 - **📊 Monitoring & Logging**: Optional execution monitoring and logging
+- **🎨 Graphviz**: Visualize complex dependency graphs in multiple formats
 
 #### 🍃 Error Propagation
 Within a group, errors propagate according to dependency order, eventually returning only **leaf errors** that have already aggregated parent errors.
@@ -86,6 +87,9 @@ Refer to the example package in this repo
 
 ### Verify
 Verify checks for cycles in the dependency graph by using `group.Verify()` or `Node.Verify()`
+
+### Graphviz
+Visualize your dependency graph by using `(Group).[RenderGraph/RenderGraphImage/RenderGraphToFile/DOT/GraphURL]`
 
 ---
 
