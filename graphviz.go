@@ -166,24 +166,24 @@ func (g *Group) GraphURL(ctx context.Context, opts *GraphOptions) (string, error
 }
 
 func buildGraphTitle(g *Group) string {
-	var title = fmt.Sprintf("Group: %s", g.Prefix)
+	var title = fmt.Sprintf("Group: %s", g.prefix)
 	var infoParts []string
-	if g.Limit > 0 {
-		infoParts = append(infoParts, fmt.Sprintf("limit=%d", g.Limit))
+	if g.limit > 0 {
+		infoParts = append(infoParts, fmt.Sprintf("limit=%d", g.limit))
 	}
-	if g.Pre != nil {
+	if g.pre != nil {
 		infoParts = append(infoParts, "pre=✓")
 	}
-	if g.After != nil {
+	if g.after != nil {
 		infoParts = append(infoParts, "after=✓")
 	}
-	if g.Timeout > 0 {
-		infoParts = append(infoParts, fmt.Sprintf("timeout=%s", g.Timeout))
+	if g.timeout > 0 {
+		infoParts = append(infoParts, fmt.Sprintf("timeout=%s", g.timeout))
 	}
 	if g.ErrC != nil {
 		infoParts = append(infoParts, "errC=✓")
 	}
-	if g.WithLog {
+	if g.log {
 		infoParts = append(infoParts, "log=✓")
 	}
 	if len(infoParts) > 0 {

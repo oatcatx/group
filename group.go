@@ -24,8 +24,8 @@ func NewGroup(opts ...option) *Group {
 		idxMap:  make(map[any]int),
 		Options: *Opts(opts...),
 	}
-	if g.Prefix == "" {
-		g.Prefix = "anonymous" // default prefix
+	if g.prefix == "" {
+		g.prefix = "anonymous" // default prefix
 	}
 	return g
 }
@@ -130,30 +130,30 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 		return nil
 	}
 
-	if g.WithLog {
+	if g.log {
 		defer func(start time.Time) {
-			groupMonitor(ctx, "Group.Go", g.Prefix, start, g.WithLog, err)
+			groupMonitor(ctx, "Group.Go", g.prefix, start, g.log, err)
 		}(time.Now())
 	}
 
 	limit := len(g.nodes) // limit defaults to the number of nodes
-	if g.Limit > 0 {
-		limit = g.Limit
+	if g.limit > 0 {
+		limit = g.limit
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(limit)
 
 	// group timeout
-	if g.Timeout > 0 {
+	if g.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.Timeout)
+		ctx, cancel = context.WithTimeout(ctx, g.timeout)
 		defer cancel()
 	}
 
 	// group pre-execution interceptor
-	if g.Pre != nil {
-		if err = g.Pre(ctx); err != nil {
+	if g.pre != nil {
+		if err = g.pre(ctx); err != nil {
 			return err
 		}
 	}
@@ -177,13 +177,13 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 			}
 		}
 		// group post-execution interceptor
-		if g.After != nil {
-			err = g.After(ctx, err)
+		if g.after != nil {
+			err = g.after(ctx, err)
 		}
 	}()
 
 	// outer timeout control
-	if g.Timeout > 0 {
+	if g.timeout > 0 {
 		done := make(chan error, 1)
 		go func() {
 			done <- eg.Wait()
@@ -191,10 +191,10 @@ func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) { // actual timeout
-				if g.WithLog {
-					slog.InfoContext(ctx, fmt.Sprintf("[Group::Group.Go] group %s timeout", g.Prefix), slog.Duration("after", g.Timeout))
+				if g.log {
+					slog.InfoContext(ctx, fmt.Sprintf("[Group::Group.Go] group %s timeout", g.prefix), slog.Duration("after", g.timeout))
 				}
-				return fmt.Errorf("group %s timeout", g.Prefix)
+				return fmt.Errorf("group %s timeout", g.prefix)
 			}
 			return <-done
 		case err = <-done:
@@ -265,9 +265,9 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 				}
 			}()
 
-			if g.WithLog || g.ErrC != nil {
+			if g.log || g.ErrC != nil {
 				defer func(start time.Time) {
-					nodeMonitor(ctx, g.Prefix, n.key, start, g.WithLog, g.ErrC, err)
+					nodeMonitor(ctx, g.prefix, n.key, start, g.log, g.ErrC, err)
 				}(time.Now())
 			}
 
@@ -287,8 +287,8 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 						if err = retryF(ctx, shared); err == nil {
 							break
 						}
-						if g.WithLog {
-							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s retry #%d", g.Prefix, n.key, i+1))
+						if g.log {
+							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s retry #%d", g.prefix, n.key, i+1))
 						}
 					}
 					return
@@ -320,8 +320,8 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 				select {
 				case <-ctx.Done():
 					if errors.Is(ctx.Err(), context.DeadlineExceeded) { // actual timeout
-						if g.WithLog {
-							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s timeout", g.Prefix, n.key), slog.Duration("after", g.Timeout))
+						if g.log {
+							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s timeout", g.prefix, n.key), slog.Duration("after", g.timeout))
 						}
 						return fmt.Errorf("node %v timeout", n.key)
 					}

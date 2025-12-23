@@ -29,8 +29,6 @@
 ## Options
 Get options by `Opts(With...)`
 
-or by `Options{...}`
-
 Available options:
 - `WithPrefix(string)` - Set group name for logging
 - `WithLimit(int)` - Set concurrency limit
