@@ -35,9 +35,9 @@ Available options:
 - `WithPreFunc(PreFunc)` - Set group pre-execution interceptor
 - `WithAfterFunc(AfterFunc)` - Set group post-execution interceptor
 - `WithTimeout(time.Duration)` - Set group timeout
-- `WithErrorCollector(chan error)` - Collect errors in channel
 - `WithLogger(*slog.Logger)` - Use custom logger
 - `WithLog` - Enable logging
+- `WithErrorCollector(chan error)` - Collect errors in channel
 
 ---
 
