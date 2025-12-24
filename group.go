@@ -60,7 +60,7 @@ func (g *Group) AddNode(n Node) *node {
 }
 
 // [Auto...] returns a value and automatically stores it in the context store
-// CAUTION: panic will occur if not use with storer-context
+// CAUTION: PANIC if not used with storer-context
 func (g *Group) AddAutoRunner(runner func() (any, error)) *node {
 	n := &node{f: func(ctx context.Context, _ any) error {
 		v, err := runner()
