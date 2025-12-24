@@ -38,6 +38,7 @@ type NodeRollbackFunc func(ctx context.Context, shared any, err error) error
 
 type nodeSpec struct {
 	ff       bool // fast-fail flag
+	sf       bool // silent-fail flag
 	retry    int
 	pre      NodePreFunc
 	after    NodeAfterFunc
@@ -87,6 +88,11 @@ func (n *node) WeakDep(keys ...any) *node {
 
 func (n *node) FastFail() *node {
 	n.ff = true
+	return n
+}
+
+func (n *node) SilentFail() *node {
+	n.sf = true
 	return n
 }
 

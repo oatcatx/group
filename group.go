@@ -121,10 +121,12 @@ func (g *Group) Node(key any) *node {
 	return nil
 }
 
-// if shared units are provided, they will be passed to the shared tasks
-// if len(shared) == 1, the task receives shared[0] (type any)
-// if len(shared) > 1, the task receives shared (type []any)
-// multiple shared units are not recommended
+// Go runs the group with added nodes
+/* if shared units are provided, they will be passed to the shared tasks
+ * if len(shared) == 1, the task receives shared[0] (type any)
+ * if len(shared) > 1, the task receives shared (type []any)
+ * multiple shared units are not recommended
+ */
 func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
 	if len(g.nodes) == 0 {
 		return nil
@@ -237,14 +239,21 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 					err = n.after(ctx, shared, err)
 				}
 
-				// wrap error and record
+				// error handling
 				ok := err == nil
 				if !ok {
-					groupErrs[n.idx], err = wrapError(n, err, groupErrs), nil // clear non-fast-fail error
+					if !n.sf { // record non-silent-fail error
+						groupErrs[n.idx] = wrapError(n, err, groupErrs)
+					}
 					if n.ff {
-						err = groupErrs[n.idx] // fast-fail will cancel the group context with current node's error chain
+						if n.sf {
+							err = context.Canceled // sentinel error for silent-fast-fail
+						} else {
+							err = groupErrs[n.idx] // fast-fail will cancel the group context with current node's error chain
+						}
 						return
 					}
+					err = nil // clear non-fast-fail error
 				}
 
 				// notify

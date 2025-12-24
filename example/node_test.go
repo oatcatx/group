@@ -47,6 +47,54 @@ func TestGroupGoNodeFFAndBlock(t *testing.T) {
 	})
 }
 
+func TestGroupGoNodeSFAndBlock(t *testing.T) {
+	t.Parallel()
+
+	t.Run("silent-fail blocks downstream but no error returned", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.F).Key("f").SilentFail(). // silent-fail
+			AddRunner(c.C).Key("c").              // C will execute for 2 seconds
+			AddRunner(c.X).Dep("f").              // X will be blocked since silent-fail occurs
+			Go(ctx)
+
+		assert.Nil(t, err) // no error returned despite F failing
+		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
+		assert.Equal(t, 0, c.x) // X should not execute
+	})
+
+	t.Run("silent-fail with weak dependency allows downstream", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.F).Key("f").SilentFail(). // silent-fail
+			AddRunner(c.C).Key("c").              // C will execute for 2 seconds
+			AddRunner(c.X).WeakDep("f").          // X will execute despite F failing
+			Go(ctx)
+
+		assert.Nil(t, err) // no error returned
+		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
+		assert.Equal(t, 1, c.x) // X should execute
+	})
+
+	t.Run("multiple silent-fail nodes", func(t *testing.T) {
+		t.Parallel()
+		ctx, c, s := context.Background(), new(exampleCtx), time.Now()
+
+		err := NewGroup().
+			AddRunner(c.F).Key("f").SilentFail(). // silent-fail
+			AddRunner(c.F).Key("g").SilentFail(). // silent-fail
+			AddRunner(c.C).Key("c").              // C will execute for 2 seconds
+			Go(ctx)
+
+		assert.Nil(t, err) // no error returned despite F and G failing
+		assert.Equal(t, float64(2), time.Since(s).Truncate(time.Second).Seconds())
+	})
+}
+
 func TestGroupGoNodeRetry(t *testing.T) {
 	t.Parallel()
 

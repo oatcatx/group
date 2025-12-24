@@ -47,11 +47,11 @@ Available options:
 - **🔗 Dependency Management**: Define task dependencies with automatic execution ordering
 - **🧩 Weak Dependencies**: Continue execution even when upstream tasks fail
 - **📦 Built-in Store**: Share data between dependent tasks using context-based storage
-- **💥 Fast-Fail Control**: Configure tasks to halt group execution on error
+- **💥 Fail Strategy Control**: Configure tasks with different failure behaviors
 - **🔄 Retry Mechanism**: Configure automatic retry for individual nodes
 - **🎣 Interceptors**: Pre and post-execution hooks at both group and node level
 - **🔙 Rollback Mechanism**: Define compensation logic to revert changes when tasks fail
-- **⏱️ Timeout Control**: Set timeouts at the group level
+- **⏱️ Timeout Control**: Set timeouts at both group and node level
 - **📊 Monitoring & Logging**: Optional execution monitoring and logging
 - **🎨 Graphviz**: Visualize complex dependency graphs in multiple formats
 
@@ -59,10 +59,16 @@ Available options:
 Within a group, errors propagate according to dependency order, eventually returning only **leaf errors** that have already aggregated parent errors.
 If multiple leaf errors exist, they are aggregated using `errors.Join` (when a fast-fail error occurs, only the aggregated error from the fast-fail node is returned).
 
+#### 🎯 Fail Strategies
+- **Default**: Node errors propagate to downstreams and are included in final error aggregation
+- **Fast-Fail**: Halt entire group execution immediately on node error (only this error is warpped and returned)
+- **Silent-Fail**: Suppress error from final result but still block downstreams (no error recorded)
+> **Note**: Fast-Fail and Silent-Fail can be used simultaneously. When error occurs, a sentinel error will be used as the actual error (`context.Canceled`) and halt the entire group
+
 ### Usage
 
 #### [Basic Workflow]
-Create a group using `NewGroup` with optional configurations, then add tasks using `AddRunner`, `AddTask`, or `AddSharedTask`. Each task can be assigned a unique key and specify its dependencies. Finally, execute the group with `Go` method.
+Create a group using `NewGroup` with optional configurations, then add tasks using `Add...`. Each task can be assigned a unique key and specify its dependencies. Finally, execute the group with `Go` method.
 
 #### [Task Types]
 ***🚀 Simple Runner*** - Basic function that returns an error. No access to context or shared state.
@@ -78,6 +84,7 @@ shared-state task will be able to access predefined shared data via the shared a
 - **`Dep(...any)`** - Add strong dependencies (blocks on upstream errors)
 - **`WeakDep(...any)`** - Add weak dependencies (continues on upstream errors)
 - **`FastFail()`** - Halt entire group on node error
+- **`SilentFail()`** - Suppress error but block downstreams
 - **`WithRetry(int)`** - Set retry attempts on failure
 - **`WithPreFunc(NodePreFunc)`** - Set node pre-execution interceptor
 - **`WithAfterFunc(NodeAfterFunc)`** - Set node post-execution interceptor
