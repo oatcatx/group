@@ -23,7 +23,7 @@ func RecoverContext(ctx context.Context, err *error) {
 			locAttrs = append(locAttrs, slog.String("file", file), slog.Int("line", line))
 			if fn := runtime.FuncForPC(pc); fn != nil {
 				fnName := fn.Name()
-				loc += " " + fnName
+				loc += " (" + fnName + ")"
 				locAttrs = append(locAttrs, slog.String("func", fnName))
 			}
 			panicAttrs = append(panicAttrs, slog.GroupAttrs("location", locAttrs...))
