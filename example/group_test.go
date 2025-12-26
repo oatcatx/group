@@ -352,3 +352,30 @@ func TestGroupGoInterceptor(t *testing.T) {
 		assert.Contains(t, err.Error(), "timeout")
 	})
 }
+
+// region BAD USE CASE
+type svc struct{ x int }
+
+var xgroup *Group
+
+func (s *svc) X() error {
+	if xgroup == nil {
+		xgroup = NewGroup().AddRunner(func() error {
+			s.x++
+			return nil
+		}).Group
+	}
+	return xgroup.Go(context.Background())
+}
+func TestGroupGoWrongClosure(t *testing.T) {
+	t.Parallel()
+
+	s1 := &svc{}
+	s1.X()
+	assert.Equal(t, 1, s1.x)
+
+	s2 := &svc{}
+	s2.X()
+	assert.Equal(t, 0, s2.x) // this is expected to be 1, but is 0 due to closure capturing the same group
+	assert.Equal(t, 2, s1.x) // s1.x is now 2 since the group which captured s1 is ran again
+}

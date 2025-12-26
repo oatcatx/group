@@ -122,9 +122,10 @@ func (g *Group) Node(key any) *node {
 }
 
 // Go runs the group with added nodes
-/* if shared units are provided, they will be passed to the shared tasks
- * if len(shared) == 1, the task receives shared[0] (type any)
- * if len(shared) > 1, the task receives shared (type []any)
+/*
+ * if shared units are provided, they will be passed to the shared nodes
+ * if len(shared) == 1, the node receives shared[0] (type any)
+ * if len(shared) > 1, the node receives shared (type []any)
  * multiple shared units are not recommended
  */
 func (g *Group) Go(ctx context.Context, shared ...any) (err error) {
