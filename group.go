@@ -18,6 +18,11 @@ type Group struct {
 	Options
 }
 
+// Use [Add...] methods to add different types of nodes to the group
+/*
+ * [AddAuto...] adds an auto node that returns a value and automatically stores it in the context store
+ * CAUTION: will PANIC if auto nodes are not used with storer-context
+ */
 func NewGroup(opts ...option) *Group {
 	g := &Group{
 		nodes:   make([]*node, 0),
@@ -37,6 +42,39 @@ func (g *Group) AddRunner(runner func() error) *node {
 	return n
 }
 
+func (g *Group) AddSharedRunner(runner func(any) error) *node {
+	n := &node{f: func(_ context.Context, shared any) error { return runner(shared) }, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
+func (g *Group) AddAutoRunner(runner func() (any, error)) *node {
+	n := &node{f: func(ctx context.Context, _ any) error {
+		v, err := runner()
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
+func (g *Group) AddAutoSharedRunner(runner func(any) (any, error)) *node {
+	n := &node{f: func(ctx context.Context, shared any) error {
+		v, err := runner(shared)
+		if err == nil {
+			Store(ctx, v)
+		}
+		return err
+	}, idx: g.x, Group: g}
+	g.nodes = append(g.nodes, n)
+	g.x++
+	return n
+}
+
 func (g *Group) AddTask(task func(context.Context) error) *node {
 	n := &node{f: func(ctx context.Context, _ any) error { return task(ctx) }, idx: g.x, Group: g}
 	g.nodes = append(g.nodes, n)
@@ -46,29 +84,6 @@ func (g *Group) AddTask(task func(context.Context) error) *node {
 
 func (g *Group) AddSharedTask(task func(context.Context, any) error) *node {
 	n := &node{f: task, idx: g.x, Group: g}
-	g.nodes = append(g.nodes, n)
-	g.x++
-	return n
-}
-
-func (g *Group) AddNode(n Node) *node {
-	node := &node{f: n.Exec, idx: g.x, Group: g}
-	node.Key(n.Key()).Dep(n.Dep()...).WeakDep(n.WeakDep()...)
-	g.nodes = append(g.nodes, node)
-	g.x++
-	return node
-}
-
-// [Auto...] returns a value and automatically stores it in the context store
-// CAUTION: PANIC if not used with storer-context
-func (g *Group) AddAutoRunner(runner func() (any, error)) *node {
-	n := &node{f: func(ctx context.Context, _ any) error {
-		v, err := runner()
-		if err == nil {
-			Store(ctx, v)
-		}
-		return err
-	}, idx: g.x, Group: g}
 	g.nodes = append(g.nodes, n)
 	g.x++
 	return n
@@ -98,6 +113,14 @@ func (g *Group) AddAutoSharedTask(task func(context.Context, any) (any, error)) 
 	g.nodes = append(g.nodes, n)
 	g.x++
 	return n
+}
+
+func (g *Group) AddNode(n Node) *node {
+	node := &node{f: n.Exec, idx: g.x, Group: g}
+	node.Key(n.Key()).Dep(n.Dep()...).WeakDep(n.WeakDep()...)
+	g.nodes = append(g.nodes, node)
+	g.x++
+	return node
 }
 
 func (g *Group) AddAutoNode(n AutoNode) *node {
