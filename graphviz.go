@@ -16,29 +16,31 @@ import (
 )
 
 type GraphOptions struct {
-	Title         string           // graph title
-	Format        graphviz.Format  // output format
-	RankDir       cgraph.RankDir   // direction: TB (top-bottom), LR (left-right), BT, RL
-	NodeShape     cgraph.Shape     // node shape: box, ellipse, circle, etc.
-	NodeColor     string           // node color
-	FastFailColor string           // color for fast-fail nodes
-	EdgeColor     string           // edge color
-	WeakEdgeStyle cgraph.EdgeStyle // style for weak dependency edges (dashed, dotted)
-	ShowGroupInfo bool             // show group options in title
-	ShowNodeSpec  bool             // show node spec details
+	Title           string           // graph title
+	Format          graphviz.Format  // output format
+	RankDir         cgraph.RankDir   // direction: TB (top-bottom), LR (left-right), BT, RL
+	NodeShape       cgraph.Shape     // node shape: box, ellipse, circle, etc.
+	NodeColor       string           // node color
+	FastFailColor   string           // color for fast-fail nodes
+	SilentFailColor string           // color for silent-fail nodes
+	EdgeColor       string           // edge color
+	WeakEdgeStyle   cgraph.EdgeStyle // style for weak dependency edges (dashed, dotted)
+	ShowGroupInfo   bool             // show group options in title
+	ShowNodeSpec    bool             // show node spec details
 }
 
 func DefaultGraphOptions() *GraphOptions {
 	return &GraphOptions{
-		Format:        graphviz.PNG,
-		RankDir:       cgraph.TBRank,
-		NodeShape:     cgraph.BoxShape,
-		NodeColor:     "#7FFFD4",
-		FastFailColor: "#D2042D",
-		EdgeColor:     "#333333",
-		WeakEdgeStyle: cgraph.DashedEdgeStyle,
-		ShowGroupInfo: true,
-		ShowNodeSpec:  true,
+		Format:          graphviz.PNG,
+		RankDir:         cgraph.TBRank,
+		NodeShape:       cgraph.BoxShape,
+		NodeColor:       "#7FFFD4",
+		FastFailColor:   "#D2042D",
+		SilentFailColor: "#A9A9A9",
+		EdgeColor:       "#333333",
+		WeakEdgeStyle:   cgraph.DashedEdgeStyle,
+		ShowGroupInfo:   true,
+		ShowNodeSpec:    true,
 	}
 }
 
@@ -78,9 +80,15 @@ func (g *Group) RenderGraph(ctx context.Context, opts *GraphOptions, w io.Writer
 		node.SetShape(cgraph.Shape(opts.NodeShape))
 		node.SetStyle(cgraph.FilledNodeStyle)
 		node.SetFontColor("black")
-		if n.ff {
+		switch {
+		case n.ff && n.sf:
+			// gredient color effect for silent-fast-fail
+			node.SetFillColor(opts.FastFailColor + ":" + opts.SilentFailColor)
+		case n.ff:
 			node.SetFillColor(opts.FastFailColor)
-		} else {
+		case n.sf:
+			node.SetFillColor(opts.SilentFailColor)
+		default:
 			node.SetFillColor(opts.NodeColor)
 		}
 		if opts.ShowNodeSpec {
@@ -197,6 +205,9 @@ func buildNodeLabel(n *node) string {
 	var details []string
 	if n.ff {
 		details = append(details, "⚡︎ fast-fail")
+	}
+	if n.sf {
+		details = append(details, "⊘ silent-fail")
 	}
 	if n.retry > 0 {
 		details = append(details, fmt.Sprintf("↻ retry=%d", n.retry))

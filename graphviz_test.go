@@ -161,38 +161,57 @@ func TestGroupGraphWithAllFeatures(t *testing.T) {
 		Dep("A").
 		WithRetry(3)
 
-	// Node C: with timeout and pre/after interceptors
+	// Node C: with pre/after interceptors and timeout
 	g.AddRunner(func() error { return nil }).
 		Key("C").
 		Dep("A").
-		WithTimeout(5 * time.Second).
 		WithPreFunc(func(context.Context, any) error { return nil }).
-		WithAfterFunc(func(context.Context, any, error) error { return nil })
+		WithAfterFunc(func(context.Context, any, error) error { return nil }).
+		WithTimeout(5 * time.Second)
 
-	// Node D: with rollback and fast-fail
+	// Node D: silent-fail
 	g.AddRunner(func() error { return nil }).
 		Key("D").
+		Dep("A").
+		SilentFail()
+
+		// Node E: fast-fail with rollback
+	g.AddRunner(func() error { return nil }).
+		Key("E").
 		Dep("B").
 		FastFail().
 		WithRollback(func(context.Context, any, error) error { return nil })
 
-	// Node E: weak dependency with all features
-	g.AddRunner(func() error { return nil }).
-		Key("E").
-		WeakDep("C").
-		WithRetry(2).
-		WithTimeout(10 * time.Second).
-		WithPreFunc(func(context.Context, any) error { return nil }).
-		WithAfterFunc(func(context.Context, any, error) error { return nil }).
-		WithRollback(func(context.Context, any, error) error { return nil })
-
-	// Node F: final node depending on D and E, fast-fail with retry
+	// Node F: weak dependency with all features
 	g.AddRunner(func() error { return nil }).
 		Key("F").
-		Dep("D", "E").
+		WeakDep("C").
+		WithRetry(2).
+		WithPreFunc(func(context.Context, any) error { return nil }).
+		WithAfterFunc(func(context.Context, any, error) error { return nil }).
+		WithRollback(func(context.Context, any, error) error { return nil }).
+		WithTimeout(10 * time.Second)
+
+	// Node G: fast-fail & silent-fail / silent-fast-fail
+	g.AddRunner(func() error { return nil }).
+		Key("G").
+		Dep("D").
+		FastFail().
+		SilentFail()
+
+	// Node H: multiple dependencies with fast-fail
+	g.AddRunner(func() error { return nil }).
+		Key("H").
+		Dep("E", "F").
 		FastFail().
 		WithRetry(1).
 		WithTimeout(15 * time.Second)
+
+	// Node I: multiple dependencies final node
+	g.AddRunner(func() error { return nil }).
+		Key("I").
+		Dep("G", "H").
+		WeakDep("B", "C")
 
 	img, err := g.RenderGraphImage(context.Background(), nil)
 	assert.Nil(t, err)
