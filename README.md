@@ -74,10 +74,10 @@ Create a group using `NewGroup` with optional configurations, then add tasks usi
 ***🚀 Simple Runner*** - Basic function that returns an error. No access to context or shared state.
 
 ***🚁 Context-Aware Task*** - Receives a context parameter, allowing the task to respond to cancellation signals and timeouts.
-Context-aware tasks will be able to communicate data through `Store` and `Fetch`. Additionally, you can directly insert key-value pairs into the context by using `Put`.
+Context-aware tasks will be able to communicate data through `Store` and `Fetch` when using with storer-context. Additionally, you can directly insert key-value pairs into the storer-context by using `Put`.
 
-***🚢 Shared-State Task*** - Receives both context and a shared state object, enabling tasks to access and modify common data structures.
-shared-state task will be able to access predefined shared data via the shared arguments passed in (**❗❗ beware of potential data race**).
+***🚢 Shared-State Task*** - Receives the context along with a shared state unit, enabling tasks to access and modify common data structures.
+Shared-state tasks will be able to access predefined shared data via the shared argument passed in (**❗❗ beware of potential data race**).
 
 #### [Node Configuration]
 - **`Key(any)`** - Assign unique identifier
