@@ -5,26 +5,18 @@
 *Much less overhead by optional features selected*
 
 ## APIs
-`Go(ctx, opts, fs...)`  `TryGo(ctx, opts, fs...) bool`
+https://pkg.go.dev/github.com/oatcatx/group#section-documentation
 
-`GoCtx(ctx, opts, fs...)`  `TryGoCtx(ctx, opts, fs...) bool`
-
----
-
-`Opts(With...) *Options`
-
----
-
-`NewGroup() *Group`
-
-**`(Group).Go(ctx) error`**
-
-`(Group).Add... *node`  `(Group).Node(key) *node`  `(Group).Verify(panicking) *node`
-
----
-`WithStore(ctx, store) context.Context`
-
-`Store(ctx, value)`  `Fetch(ctx, key)`  `Put(ctx, key, value)`
+## Example
+``` go
+err := NewGroup().
+  AddRunner(c.A).Key("a").
+  AddRunner(c.B).Key("b").Dep("a").
+  AddRunner(c.C).Key("c").Dep("a").
+  AddRunner(c.D).Key("d").Dep("b", "c").
+  Go(ctx)
+...
+```
 
 ## Options
 Get options by `Opts(With...)`
@@ -80,16 +72,16 @@ Context-aware tasks will be able to communicate data through `Store` and `Fetch`
 Shared-state tasks will be able to access predefined shared data via the shared argument passed in (**❗❗ beware of potential data race**).
 
 #### [Node Configuration]
-- **`Key(any)`** - Assign unique identifier
-- **`Dep(...any)`** - Add strong dependencies (blocks on upstream errors)
-- **`WeakDep(...any)`** - Add weak dependencies (continues on upstream errors)
-- **`FastFail()`** - Halt entire group on node error
-- **`SilentFail()`** - Suppress error but block downstreams
-- **`WithRetry(int)`** - Set retry attempts on failure
-- **`WithPreFunc(NodePreFunc)`** - Set node pre-execution interceptor
-- **`WithAfterFunc(NodeAfterFunc)`** - Set node post-execution interceptor
-- **`WithRollback(RollbackFunc)`** - Set compensation function executed on failure
-- **`WithTimeout(time.Duration)`** - Set node-specific timeout
+- `Key(any)` - Assign unique identifier
+- `Dep(...any)` - Add strong dependencies (blocks on upstream errors)
+- `WeakDep(...any)` - Add weak dependencies (continues on upstream errors)
+- `FastFail()` - Halt entire group on node error
+- `SilentFail()` - Suppress error but block downstreams
+- `WithRetry(int)` - Set retry attempts on failure
+- `WithPreFunc(NodePreFunc)` - Set node pre-execution interceptor
+- `WithAfterFunc(NodeAfterFunc)` - Set node post-execution interceptor
+- `WithRollback(RollbackFunc)` - Set compensation function executed on failure
+- `WithTimeout(time.Duration)` - Set node-specific timeout
 
 #### [More...]
 Refer to the example package in this repo
