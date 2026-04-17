@@ -18,7 +18,9 @@ type Storer interface {
 
 type storeKey struct{}
 type storeFunc func(any)
+type fetchKey struct{}
 
+// Store stores value in the context's store
 func Store[V any](ctx context.Context, value V) {
 	if f, _ := ctx.Value(storeKey{}).(storeFunc); f != nil {
 		f(value)
@@ -27,7 +29,14 @@ func Store[V any](ctx context.Context, value V) {
 	}
 }
 
-type fetchKey struct{}
+// Put stores value with a given key in the context's store
+func Put[K, V any](ctx context.Context, key K, value V) {
+	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
+		store.Store(key, value)
+	} else {
+		panic("Put called with non-storer context")
+	}
+}
 
 func Fetch[T any](ctx context.Context, key any) (T, bool) {
 	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
@@ -41,14 +50,17 @@ func Fetch[T any](ctx context.Context, key any) (T, bool) {
 	return v, ok
 }
 
-func Put[K, V any](ctx context.Context, key K, value V) {
-	if store, _ := ctx.Value(fetchKey{}).(Storer); store != nil {
-		store.Store(key, value)
-	} else {
-		panic("Put called with non-storer context")
+func FetchMany[K comparable, V any](ctx context.Context, keys ...K) map[K]V {
+	result := make(map[K]V, len(keys))
+	for _, key := range keys {
+		if val, ok := Fetch[V](ctx, key); ok {
+			result[key] = val
+		}
 	}
+	return result
 }
 
+// built-in store implementations
 type mapStore struct {
 	ptr atomic.Pointer[map[any]any]
 }
