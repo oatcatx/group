@@ -208,10 +208,15 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 				retryF := execF
 				execF = func(ctx context.Context, shared any) (err error) {
 					for i := range n.retry + 1 {
+						select {
+						case <-ctx.Done():
+							return ctx.Err()
+						default:
+						}
 						if err = retryF(ctx, shared); err == nil {
 							break
 						}
-						if g.log {
+						if g.log && i < n.retry {
 							slog.InfoContext(ctx, fmt.Sprintf("[Group::node -> exec] group %s: node %s retry #%d", g.prefix, n.key, i+1))
 						}
 					}
