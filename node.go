@@ -32,6 +32,7 @@ type node struct {
 }
 
 // node level interceptor
+type NodeConditionFunc func(ctx context.Context, shared any) bool
 type NodePreFunc func(ctx context.Context, shared any) error
 type NodeAfterFunc func(ctx context.Context, shared any, err error) error
 type NodeRollbackFunc func(ctx context.Context, shared any, err error) error
@@ -40,6 +41,7 @@ type nodeSpec struct {
 	ff       bool // fast-fail flag
 	sf       bool // silent-fail flag
 	retry    int
+	cond     NodeConditionFunc
 	pre      NodePreFunc
 	after    NodeAfterFunc
 	rollback NodeRollbackFunc
@@ -116,6 +118,18 @@ func (n *node) WithAfterFunc(f NodeAfterFunc) *node {
 
 func (n *node) WithRollback(f NodeRollbackFunc) *node {
 	n.rollback = f
+	return n
+}
+
+func (n *node) WithCondition(f NodeConditionFunc) *node {
+	n.cond = f
+	return n
+}
+
+func (n *node) SkipIf(skip bool) *node {
+	if skip {
+		n.cond = func(ctx context.Context, shared any) bool { return false }
+	}
 	return n
 }
 

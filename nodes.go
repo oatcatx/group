@@ -1,6 +1,8 @@
 package group
 
-import "time"
+import (
+	"time"
+)
 
 // nodes represents a batch of nodes that share configurations
 type nodes struct {
@@ -67,6 +69,20 @@ func (ns *nodes) WithAfterFunc(f NodeAfterFunc) *nodes {
 func (ns *nodes) WithRollback(f NodeRollbackFunc) *nodes {
 	for _, idx := range ns.indices {
 		ns.nodes[idx].WithRollback(f)
+	}
+	return ns
+}
+
+func (ns *nodes) WithCondition(f NodeConditionFunc) *nodes {
+	for _, idx := range ns.indices {
+		ns.nodes[idx].WithCondition(f)
+	}
+	return ns
+}
+
+func (ns *nodes) SkipIf(skip bool) *nodes {
+	for _, idx := range ns.indices {
+		ns.nodes[idx].SkipIf(skip)
 	}
 	return ns
 }

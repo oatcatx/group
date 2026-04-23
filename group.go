@@ -236,6 +236,16 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 					return preF(ctx, shared)
 				}
 			}
+			if n.cond != nil {
+				// wrap condition check (outermost)
+				condF := execF
+				execF = func(ctx context.Context, shared any) error {
+					if !n.cond(ctx, shared) {
+						return nil
+					}
+					return condF(ctx, shared)
+				}
+			}
 
 			if n.timeout > 0 {
 				var cancel context.CancelFunc
