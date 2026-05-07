@@ -84,14 +84,6 @@ func Go(ctx context.Context, opts *Options, fs ...func() error) (err error) {
 	return g.Wait()
 }
 
-func GoCtx(ctx context.Context, opts *Options, fs ...func(context.Context) error) error {
-	fcs := make([]func() error, 0, len(fs))
-	for _, f := range fs {
-		fcs = append(fcs, func() error { return f(ctx) })
-	}
-	return Go(ctx, opts, fcs...)
-}
-
 func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err error) {
 	if len(fs) == 0 {
 		return true, nil
@@ -166,14 +158,6 @@ func TryGo(ctx context.Context, opts *Options, fs ...func() error) (ok bool, err
 	return ok, g.Wait()
 }
 
-func TryGoCtx(ctx context.Context, opts *Options, fs ...func(context.Context) error) (bool, error) {
-	fcs := make([]func() error, 0, len(fs))
-	for _, f := range fs {
-		fcs = append(fcs, func() error { return f(ctx) })
-	}
-	return TryGo(ctx, opts, fcs...)
-}
-
 func exec(ctx context.Context, g *errgroup.Group, opts *Options, fs ...func() error) {
 	for _, f := range fs {
 		g.Go(func() (err error) {
@@ -226,6 +210,14 @@ func tryExec(ctx context.Context, g *errgroup.Group, opts *Options, fs ...func()
 	return ok
 }
 
+func GoCtx(ctx context.Context, opts *Options, fs ...func(context.Context) error) error {
+	fcs := make([]func() error, 0, len(fs))
+	for _, f := range fs {
+		fcs = append(fcs, func() error { return f(ctx) })
+	}
+	return Go(ctx, opts, fcs...)
+}
+
 func GoAsync(ctx context.Context, opts *Options, fs ...func() error) chan error {
 	errC := make(chan error, 1)
 	go func() {
@@ -242,6 +234,14 @@ func GoCtxAsync(ctx context.Context, opts *Options, fs ...func(context.Context) 
 		errC <- GoCtx(ctx, opts, fs...)
 	}()
 	return errC
+}
+
+func TryGoCtx(ctx context.Context, opts *Options, fs ...func(context.Context) error) (bool, error) {
+	fcs := make([]func() error, 0, len(fs))
+	for _, f := range fs {
+		fcs = append(fcs, func() error { return f(ctx) })
+	}
+	return TryGo(ctx, opts, fcs...)
 }
 
 func TryGoAsync(ctx context.Context, opts *Options, fs ...func() error) chan struct {
