@@ -225,3 +225,59 @@ func tryExec(ctx context.Context, g *errgroup.Group, opts *Options, fs ...func()
 	}
 	return ok
 }
+
+func GoAsync(ctx context.Context, opts *Options, fs ...func() error) chan error {
+	errC := make(chan error, 1)
+	go func() {
+		defer close(errC)
+		errC <- Go(ctx, opts, fs...)
+	}()
+	return errC
+}
+
+func GoCtxAsync(ctx context.Context, opts *Options, fs ...func(context.Context) error) chan error {
+	errC := make(chan error, 1)
+	go func() {
+		defer close(errC)
+		errC <- GoCtx(ctx, opts, fs...)
+	}()
+	return errC
+}
+
+func TryGoAsync(ctx context.Context, opts *Options, fs ...func() error) chan struct {
+	ok  bool
+	err error
+} {
+	resC := make(chan struct {
+		ok  bool
+		err error
+	}, 1)
+	go func() {
+		defer close(resC)
+		ok, err := TryGo(ctx, opts, fs...)
+		resC <- struct {
+			ok  bool
+			err error
+		}{ok: ok, err: err}
+	}()
+	return resC
+}
+
+func TryGoCtxAsync(ctx context.Context, opts *Options, fs ...func(context.Context) error) chan struct {
+	ok  bool
+	err error
+} {
+	resC := make(chan struct {
+		ok  bool
+		err error
+	}, 1)
+	go func() {
+		defer close(resC)
+		ok, err := TryGoCtx(ctx, opts, fs...)
+		resC <- struct {
+			ok  bool
+			err error
+		}{ok: ok, err: err}
+	}()
+	return resC
+}

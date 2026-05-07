@@ -280,3 +280,12 @@ func (g *Group) exec(ctx context.Context, eg *errgroup.Group, shared any, groupE
 		}
 	}
 }
+
+func (g *Group) GoAsync(ctx context.Context, shared ...any) chan error {
+	errC := make(chan error, 1)
+	go func() {
+		defer close(errC)
+		errC <- g.Go(ctx, shared...)
+	}()
+	return errC
+}
