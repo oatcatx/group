@@ -26,16 +26,19 @@ type node struct {
 	idx              int
 	key              any
 	deps, to, weakTo []int // dependencies | to nodes | weak to nodes
-	f                func(ctx context.Context, shared any) error
+	f                NodeFunc
 	nodeSpec
 	*Group
 }
 
+type NodeFunc = func(ctx context.Context, shared any) error
+type NodeErrFunc = func(ctx context.Context, shared any, err error) error
+
 // node level interceptor
-type NodeConditionFunc func(ctx context.Context, shared any) bool
-type NodePreFunc func(ctx context.Context, shared any) error
-type NodeAfterFunc func(ctx context.Context, shared any, err error) error
-type NodeRollbackFunc func(ctx context.Context, shared any, err error) error
+type NodeConditionFunc = func(ctx context.Context, shared any) bool
+type NodePreFunc = NodeFunc
+type NodeAfterFunc = NodeErrFunc
+type NodeRollbackFunc = NodeErrFunc
 
 type nodeSpec struct {
 	ff       bool // fast-fail flag
